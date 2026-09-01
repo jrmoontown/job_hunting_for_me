@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<title>취준 대시보드</title>
+<meta name="description" content="기업 · 직무 · 데드라인으로 관리하는 취업 준비 일정표와 투두리스트" />
+<meta name="theme-color" content="#3182F6" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="취준" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./assets/icons/icon-180.png" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<link rel="stylesheet" href="./assets/css/app.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ===== 데스크톱 사이드 네비게이션 ===== -->
+    <aside class="sidenav" id="sidenav">
+      <div class="sidenav__brand">
+        <span class="sidenav__logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="4" fill="currentColor" opacity=".18"/><path d="M8 3v4M16 3v4M3.5 10.5h17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m9 15.5 2 2 4-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div>
+          <p class="sidenav__title">취준 대시보드</p>
+          <p class="sidenav__subtitle" id="sidenavSubtitle">일정과 공고를 한 곳에서</p>
+        </div>
+      </div>
+      <nav class="sidenav__menu" aria-label="주요 메뉴"></nav>
+      <div class="sidenav__foot">
+        <div class="sync-chip" id="syncChipDesktop" role="status" aria-live="polite"></div>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <!-- ===== 모바일 상단 바 ===== -->
+      <header class="topbar">
+        <div class="topbar__inner">
+          <div class="topbar__lead">
+            <h1 class="topbar__title" id="topbarTitle">캘린더</h1>
+            <p class="topbar__caption" id="topbarCaption"></p>
+          </div>
+          <div class="topbar__actions">
+            <button class="icon-btn" id="themeToggle" type="button" aria-label="화면 테마 전환"></button>
+            <button class="icon-btn" id="syncBtn" type="button" aria-label="동기화"></button>
+          </div>
+        </div>
+      </header>
+
+      <main class="content" id="view" tabindex="-1"></main>
+    </div>
+
+    <!-- ===== 모바일 하단 탭바 ===== -->
+    <nav class="tabbar" aria-label="주요 메뉴"></nav>
+  </div>
+
+  <!-- 플로팅 추가 버튼 -->
+  <button class="fab" id="fab" type="button" aria-label="새 항목 추가">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+
+  <div class="sheet-root" id="sheetRoot" hidden></div>
+  <div class="toast-root" id="toastRoot" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+</html>
