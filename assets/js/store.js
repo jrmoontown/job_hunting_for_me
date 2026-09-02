@@ -4,7 +4,7 @@
  * - Gist 동기화(sync.js)가 pull/merge/push 할 때 이 모듈의 직렬화를 사용
  * - 모든 변경은 updatedAt 갱신 → 기기 간 병합 시 최신 수정이 이긴다
  */
-import { SEED_JOBS, SEED_TODOS, SEED_VERSION } from './seed.js';
+import { SEED_JOBS, SEED_TODOS, SEED_EVENTS, SEED_VERSION } from './seed.js';
 
 const LS_KEY = 'jobhunt.data.v1';
 const LS_SETTINGS = 'jobhunt.settings.v1';
@@ -18,6 +18,8 @@ const uid = () => `id-${Date.now().toString(36)}-${Math.random().toString(36).sl
 const state = {
   jobs: [],
   todos: [],
+  /** 개인 일정 — 지원서를 쓰기 어려운 날 (여행, 약속, 기념일 …) */
+  events: [],
   /** 삭제 이력(tombstone) — 다른 기기에서 병합할 때 부활을 막는다 */
   deleted: {}, // { [id]: deletedAtISO }
   meta: { updatedAt: '', seedVersion: 0 },
@@ -45,7 +47,7 @@ function persist() {
   state.meta.updatedAt = now();
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      jobs: state.jobs, todos: state.todos, deleted: state.deleted, meta: state.meta,
+      jobs: state.jobs, todos: state.todos, events: state.events, deleted: state.deleted, meta: state.meta,
     }));
   } catch { /* 시크릿 모드 등에서 저장 실패해도 앱은 동작해야 한다 */ }
 }
@@ -66,16 +68,34 @@ export function load() {
   if (raw && Array.isArray(raw.jobs)) {
     state.jobs = raw.jobs;
     state.todos = Array.isArray(raw.todos) ? raw.todos : [];
+    state.events = Array.isArray(raw.events) ? raw.events : [];
     state.deleted = raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {};
-    state.meta = raw.meta || { updatedAt: now(), seedVersion: SEED_VERSION };
+    state.meta = raw.meta || { updatedAt: now(), seedVersion: 0 };
+    migrate();
   } else {
     // 최초 실행 → 시드 데이터 주입
     state.jobs = structuredClone(SEED_JOBS);
     state.todos = structuredClone(SEED_TODOS);
+    state.events = structuredClone(SEED_EVENTS);
     state.deleted = {};
     state.meta = { updatedAt: now(), seedVersion: SEED_VERSION };
     persist();
   }
+}
+
+/** 이미 쓰고 있던 기기에 새로 추가된 시드를 한 번만 넣어준다 */
+function migrate() {
+  const ver = state.meta.seedVersion || 0;
+  if (ver >= SEED_VERSION) return;
+  if (ver < 4) {
+    // v4: 개인 일정 도입 — 사용자가 알려준 일정을 기본으로 채움 (지운 적 있으면 건너뜀)
+    const have = new Set(state.events.map((e) => e.id));
+    SEED_EVENTS.forEach((e) => {
+      if (!have.has(e.id) && !state.deleted[e.id]) state.events.push(structuredClone(e));
+    });
+  }
+  state.meta.seedVersion = SEED_VERSION;
+  persist();
 }
 
 /* ------------------------------------------------------------------ */
@@ -83,8 +103,10 @@ export function load() {
 /* ------------------------------------------------------------------ */
 export const getJobs = () => state.jobs;
 export const getTodos = () => state.todos;
+export const getEvents = () => state.events;
 export const getJob = (id) => state.jobs.find((j) => j.id === id);
 export const getTodo = (id) => state.todos.find((t) => t.id === id);
+export const getEvent = (id) => state.events.find((e) => e.id === id);
 export const getSettings = () => settings;
 
 /* ------------------------------------------------------------------ */
@@ -181,15 +203,48 @@ export function clearDoneTodos() {
 }
 
 /* ------------------------------------------------------------------ */
+/* 개인 일정 CRUD                                                       */
+/* ------------------------------------------------------------------ */
+export function addEvent(data) {
+  const item = {
+    id: uid(), title: '', start: '', end: '', kind: 'other', avail: 'none', memo: '',
+    ...data,
+    createdAt: now(), updatedAt: now(),
+  };
+  if (!item.end || item.end < item.start) item.end = item.start;
+  state.events.push(item);
+  persist(); emit('events');
+  return item;
+}
+
+export function updateEvent(id, patch) {
+  const item = getEvent(id);
+  if (!item) return null;
+  Object.assign(item, patch, { updatedAt: now() });
+  if (!item.end || item.end < item.start) item.end = item.start;
+  persist(); emit('events');
+  return item;
+}
+
+export function deleteEvent(id) {
+  const i = state.events.findIndex((e) => e.id === id);
+  if (i < 0) return;
+  state.events.splice(i, 1);
+  state.deleted[id] = now();
+  persist(); emit('events');
+}
+
+/* ------------------------------------------------------------------ */
 /* 내보내기 / 가져오기 / 병합                                            */
 /* ------------------------------------------------------------------ */
 export function serialize() {
   return {
     app: 'jobhunt-dashboard',
-    version: 1,
+    version: 2,
     exportedAt: now(),
     jobs: state.jobs,
     todos: state.todos,
+    events: state.events,
     deleted: state.deleted,
     meta: state.meta,
   };
@@ -222,6 +277,7 @@ export function mergeSnapshot(remote) {
 
   state.jobs = mergeList(state.jobs, remote.jobs);
   state.todos = mergeList(state.todos, remote.todos);
+  state.events = mergeList(state.events, remote.events);
   persist(); emit('all');
 }
 
@@ -230,6 +286,7 @@ export function replaceAll(snapshot) {
   if (!snapshot || !Array.isArray(snapshot.jobs)) throw new Error('형식이 올바르지 않은 데이터예요.');
   state.jobs = snapshot.jobs;
   state.todos = Array.isArray(snapshot.todos) ? snapshot.todos : [];
+  state.events = Array.isArray(snapshot.events) ? snapshot.events : [];
   state.deleted = snapshot.deleted && typeof snapshot.deleted === 'object' ? snapshot.deleted : {};
   persist(); emit('all');
 }
@@ -237,7 +294,9 @@ export function replaceAll(snapshot) {
 export function resetAll() {
   state.jobs = structuredClone(SEED_JOBS);
   state.todos = structuredClone(SEED_TODOS);
+  state.events = structuredClone(SEED_EVENTS);
   state.deleted = {};
+  state.meta.seedVersion = SEED_VERSION;
   persist(); emit('all');
 }
 

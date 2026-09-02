@@ -636,8 +636,8 @@ button.stat:active { transform: scale(.98); }
 .cal-cell__more { font-size: 9.5px; color: var(--text-tertiary); font-weight: 700; line-height: 1; }
 
 .cal-legend {
-  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
-  padding: 10px 12px 14px; border-top: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 8px 10px; justify-content: center;
+  padding: 10px 10px 13px; border-top: 1px solid var(--border);
 }
 .cal-legend__item {
   display: flex; align-items: center; gap: 5px;
@@ -916,3 +916,184 @@ button.settings-row:hover { background: var(--surface-hover); }
 @media (min-width: 1280px) {
   .cal-layout { grid-template-columns: minmax(0, 1fr) 380px; }
 }
+
+/* --------------------------------------------------------------------------
+   11. 개인 일정 · 작성 계획
+   -------------------------------------------------------------------------- */
+:root {
+  --teal-500: #0eb5a0;
+  --teal-50:  #dcf5f0;
+  --teal-700: #0a8d7c;
+  --hatch-a:  #eceff2;
+  --hatch-b:  #dfe3e8;
+}
+[data-theme="dark"] {
+  --teal-500: #2fd0b9;
+  --teal-50:  #12352f;
+  --teal-700: #5fe0cb;
+  --hatch-a:  #202227;
+  --hatch-b:  #2a2d34;
+}
+.badge--teal { background: var(--teal-50); color: var(--teal-700); }
+.stat--teal .stat__value { color: var(--teal-700); }
+.stat-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.stat-grid--3 .stat { padding: 14px 12px; }
+.stat-grid--3 .stat__value { font-size: 22px; }
+.chip__dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ---- 캘린더: 작성 불가 빗금 셀 ---- */
+.cal-cell--bands-1 { padding-bottom: 24px; }
+.cal-cell--bands-2 { padding-bottom: 43px; }
+.cal-cell--block,
+.cal-cell--block:hover,
+.cal-cell--block.cal-cell--selected {
+  background: repeating-linear-gradient(135deg, var(--hatch-a) 0 4px, var(--hatch-b) 4px 6px);
+  border-radius: 0;
+}
+.cal-cell--block.cal-cell--block-start { border-radius: var(--r-md) 0 0 var(--r-md); }
+.cal-cell--block.cal-cell--block-end { border-radius: 0 var(--r-md) var(--r-md) 0; }
+.cal-cell--block.cal-cell--block-start.cal-cell--block-end { border-radius: var(--r-md); }
+.cal-cell--block .cal-cell__num,
+.cal-cell--block.cal-cell--sun .cal-cell__num,
+.cal-cell--block.cal-cell--sat .cal-cell__num { color: var(--text-disabled); }
+.cal-cell--block.cal-cell--today .cal-cell__num { color: #fff; }
+
+/* ---- 캘린더: 일정 띠 ---- */
+.cal-bands {
+  position: absolute; left: 0; right: 0; bottom: 4px;
+  display: flex; flex-direction: column; gap: 2px; pointer-events: none;
+}
+.cal-band { position: relative; height: 17px; background: var(--teal-50); display: block; }
+.cal-band--start { margin-left: 3px; border-radius: 6px 0 0 6px; z-index: 2; }
+.cal-band--end { margin-right: 3px; border-radius: 0 6px 6px 0; }
+.cal-band--start.cal-band--end { border-radius: 6px; }
+.cal-band--none { background: var(--teal-500); }
+.cal-band--ok { background: var(--grey-100); }
+[data-theme="dark"] .cal-band--ok { background: var(--surface-hover); }
+.cal-band__label {
+  position: absolute; left: 6px; top: 0; line-height: 17px;
+  font-size: 10px; font-weight: 700; color: var(--teal-700); white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.cal-band--none .cal-band__label { color: #fff; }
+.cal-band--ok .cal-band__label { color: var(--text-secondary); }
+
+.cal-legend__sw { width: 14px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.cal-legend__sw--hatch {
+  background: repeating-linear-gradient(135deg, var(--hatch-a) 0 3px, var(--hatch-b) 3px 5px);
+  border: 1px solid var(--border-strong);
+}
+.cal-legend__sw--hard { background: var(--teal-50); border: 1px solid var(--teal-500); }
+
+/* ---- 개인 일정 카드 ---- */
+.evt-list { display: flex; flex-direction: column; gap: 8px; }
+.evt-card {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--surface); border-radius: var(--r-lg); padding: 12px 14px;
+  box-shadow: var(--shadow-sm); transition: box-shadow .15s var(--ease), transform .12s var(--ease);
+}
+.evt-card:hover { box-shadow: var(--shadow-md); }
+.evt-card:active { transform: scale(.99); }
+.evt-card__mark {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  background: var(--teal-50); color: var(--teal-700); display: grid; place-items: center;
+}
+.evt-card__mark svg { width: 18px; height: 18px; }
+.evt-card__mark--none { background: var(--teal-500); color: #fff; }
+.evt-card__mark--ok { background: var(--grey-100); color: var(--text-secondary); }
+[data-theme="dark"] .evt-card__mark--ok { background: var(--surface-hover); }
+.evt-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.evt-card__title { font-size: 14.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evt-card__sub { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+.evt-card__pill {
+  flex-shrink: 0; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+  background: var(--surface-sunken); color: var(--text-secondary); white-space: nowrap;
+}
+[data-theme="dark"] .evt-card__pill { background: var(--surface-hover); }
+.evt-card__pill--none { background: var(--danger-weak); color: var(--danger); }
+.evt-card__pill--hard { background: var(--teal-50); color: var(--teal-700); }
+
+/* ---- "언제까지 쓰기" 칩 ---- */
+.shift {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 12px; font-weight: 700; padding: 3px 8px 3px 6px; border-radius: 6px;
+  background: var(--warning-weak); color: var(--warning); white-space: nowrap;
+}
+.shift svg { width: 12px; height: 12px; }
+.shift--ok { background: var(--primary-weak); color: var(--primary); }
+
+/* ---- 현황: 겹치는 마감 ---- */
+.plan-group + .plan-group { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.plan-group__title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.plan-group__title .cal-legend__sw { width: 12px; height: 12px; border-radius: 4px; }
+.plan-group__count { color: var(--text-tertiary); font-weight: 600; }
+.plan-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center;
+  padding: 11px 0; width: 100%; text-align: left; border-radius: var(--r-sm);
+  transition: background .13s var(--ease);
+}
+.plan-row + .plan-row { border-top: 1px dashed var(--border); }
+.plan-row:hover { background: var(--surface-sunken); }
+[data-theme="dark"] .plan-row:hover { background: var(--surface-hover); }
+.plan-row[disabled] { pointer-events: none; }
+.plan-row__who { display: block; font-size: 14.5px; font-weight: 700; }
+.plan-row__why { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-top: 1px; }
+.plan-row__why b { color: var(--text-secondary); font-weight: 600; }
+.plan-row__to { text-align: right; display: flex; flex-direction: column; }
+.plan-row__arrow { font-size: 11px; color: var(--text-tertiary); font-weight: 600; }
+.plan-row__day { font-size: 15px; font-weight: 700; color: var(--primary); letter-spacing: -0.02em; }
+.plan-row__day--warn { color: var(--warning); }
+.plan-row__load { font-size: 11.5px; color: var(--text-tertiary); }
+.plan-row__load--hot { color: var(--danger); font-weight: 600; }
+
+/* ---- 현황: 주간 부하 ---- */
+.weeks { display: flex; flex-direction: column; gap: 12px; }
+.week { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.week__rng { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.week__rng small { display: block; font-size: 11px; color: var(--text-tertiary); font-weight: 500; }
+.week__track { display: flex; gap: 2px; height: 22px; }
+.week__day {
+  flex: 1; border-radius: 4px; background: var(--surface); border: 1px solid var(--border);
+  display: grid; place-items: center; font-size: 10px; font-weight: 700; color: var(--text-secondary);
+  font-style: normal; font-variant-numeric: tabular-nums;
+}
+.week__day--hard { background: var(--teal-50); border-color: var(--teal-500); }
+.week__day--block {
+  background: repeating-linear-gradient(135deg, var(--hatch-a) 0 3px, var(--hatch-b) 3px 5px);
+  border-color: var(--border-strong);
+}
+.week__day--past { opacity: .35; }
+.week__day--heavy { color: var(--danger); }
+.week__sum { text-align: right; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.week__sum small { display: block; font-weight: 500; color: var(--text-tertiary); font-size: 11px; }
+.week__sum--red { color: var(--danger); }
+.week__sum--amber { color: var(--warning); }
+.week__sum--blue { color: var(--primary); }
+
+/* ---- 일정 폼: 종류 칩 · 작성 가능 세그먼트 ---- */
+.kind-chips { flex-wrap: wrap; overflow: visible; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg__opt {
+  text-align: center; padding: 11px 6px; border-radius: var(--r-md);
+  background: var(--surface-sunken); font-size: 13.5px; font-weight: 600; color: var(--text-secondary);
+  border: 1.5px solid transparent; transition: all .15s var(--ease);
+}
+[data-theme="dark"] .seg__opt { background: var(--surface-hover); }
+.seg__opt small { display: block; font-size: 11px; font-weight: 500; color: var(--text-tertiary); margin-top: 1px; }
+.seg__opt[aria-pressed="true"] { border-color: var(--teal-500); background: var(--teal-50); color: var(--teal-700); }
+.seg__opt[aria-pressed="true"] small { color: var(--teal-700); }
+
+/* ---- 추가 항목 고르기 ---- */
+.chooser { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+.chooser__opt {
+  display: flex; align-items: center; gap: 12px; padding: 14px; width: 100%; text-align: left;
+  border-radius: var(--r-lg); background: var(--surface-sunken); transition: background .13s var(--ease);
+}
+[data-theme="dark"] .chooser__opt { background: var(--surface-hover); }
+.chooser__opt:hover { background: var(--grey-200); }
+[data-theme="dark"] .chooser__opt:hover { background: var(--border); }
+.chooser__opt:active { transform: scale(.985); }
+.chooser__icon { width: 38px; height: 38px; border-radius: var(--r-md); display: grid; place-items: center; flex-shrink: 0; }
+.chooser__icon svg { width: 20px; height: 20px; }
+.chooser__title { display: block; font-size: 15px; font-weight: 700; }
+.chooser__desc { display: block; font-size: 12.5px; color: var(--text-tertiary); margin-top: 1px; }

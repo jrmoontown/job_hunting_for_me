@@ -6,7 +6,18 @@
  * realDeadline : 기업이 공지한 실제 마감일 (알고 있을 때만)
  */
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
+
+/** 개인 일정 종류 */
+export const EVENT_KINDS = { trip: '여행', meet: '약속', anniv: '기념일', work: '회사 일정', other: '기타' };
+
+/** 그날 지원서를 쓸 수 있는 정도 */
+export const AVAIL = {
+  none: { label: '불가', desc: '아예 못 써요' },
+  hard: { label: '어려움', desc: '짬 나면 조금' },
+  ok:   { label: '가능', desc: '기록만 해둘게요' },
+};
+export const AVAIL_RANK = { none: 2, hard: 1, ok: 0 };
 
 /** 공고 진행 상태 정의 — 뷰 전반에서 이 순서대로 노출된다. */
 export const STATUSES = {
@@ -139,4 +150,22 @@ export const SEED_TODOS = [
   todo('자소설닷컴 공고용 포트폴리오 만들기', { url: 'https://link.jasoseol.com/recruit/105652' }),
   todo('SQLD 자격증 나오면 미제출 공고 일괄 제출하기'),
   todo('지구회의', { dueDate: '2026-09-16' }),
+];
+
+let eseq = 0;
+const event = (title, start, end, kind, avail, extra = {}) => ({
+  id: `seed-evt-${String(++eseq).padStart(3, '0')}`,
+  title, start, end, kind, avail,
+  memo: '',
+  createdAt: '2026-09-02T00:00:00.000Z',
+  updatedAt: '2026-09-02T00:00:00.000Z',
+  ...extra,
+});
+
+/** 개인 일정 — 지원서를 쓰기 어려운 날 */
+export const SEED_EVENTS = [
+  event('데이트', '2026-09-07', '2026-09-08', 'meet', 'hard'),
+  event('여자친구 500일', '2026-09-13', '2026-09-13', 'anniv', 'hard'),
+  event('가족 속초 여행', '2026-09-24', '2026-09-26', 'trip', 'none'),
+  event('제주도 여행', '2026-09-29', '2026-10-01', 'trip', 'none'),
 ];

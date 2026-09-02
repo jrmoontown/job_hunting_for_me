@@ -12,6 +12,8 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderSettings } from './views/settings.js';
 import { openJobForm } from './views/jobShared.js';
 import { openTodoForm } from './views/todos.js';
+import { openAddChooser } from './views/events.js';
+import { getPlan } from './plan.js';
 
 const ROUTES = {
   calendar: { title: '캘린더', icon: 'calendar', render: renderCalendar, caption: () => monthCaption() },
@@ -34,7 +36,9 @@ function monthCaption() {
     const d = ddayOf(j.deadline);
     return d !== null && d >= 0 && d <= 6;
   });
-  return week.length ? `이번 주 마감 ${week.length}건` : `지원 예정 ${open.length}건`;
+  const conflicts = getPlan().plans.size;
+  const head = week.length ? `이번 주 마감 ${week.length}건` : `지원 예정 ${open.length}건`;
+  return conflicts ? `${head} · 조정 필요 ${conflicts}건` : head;
 }
 function jobsCaption() {
   const jobs = getJobs();
@@ -144,7 +148,8 @@ function renderSyncUI() {
 /* ------------------------------------------------------------------ */
 document.getElementById('fab').addEventListener('click', () => {
   if (current === 'todos') openTodoForm();
-  else openJobForm();
+  else if (current === 'jobs') openJobForm();
+  else openAddChooser();
 });
 
 document.getElementById('syncBtn').addEventListener('click', async () => {

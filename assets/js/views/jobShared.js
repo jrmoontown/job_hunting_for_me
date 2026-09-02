@@ -8,6 +8,35 @@ import {
 import { STATUSES, STATUS_ORDER, isOpenStatus } from '../seed.js';
 import { esc, icons, openSheet, closeSheet, confirmSheet, toast } from '../ui.js';
 import { scheduleSync } from '../sync.js';
+import { planFor, fmtShort } from '../plan.js';
+
+/** 개인 일정과 겹칠 때 붙는 "언제까지 쓰기" 칩 */
+export function planChipHTML(job) {
+  const p = planFor(job.id);
+  if (!p) return '';
+  if (!p.writeBy) return `<span class="shift">${icons.alert}일정 겹침</span>`;
+  if (p.kind === 'none') return `<span class="shift shift--ok">${icons.chevronLeft}${fmtShort(p.writeBy)}까지 쓰기</span>`;
+  return `<span class="shift">${icons.chevronLeft}${fmtShort(p.writeBy)}에 미리 쓰기</span>`;
+}
+
+function planCalloutHTML(job) {
+  const p = planFor(job.id);
+  if (!p) return '';
+  const evName = p.event ? esc(p.event.title) : '개인 일정';
+  let text;
+  if (p.kind === 'none') {
+    text = `<strong>마감일이 ‘${evName}’ 기간이에요.</strong><br/>${p.writeBy
+      ? `${fmtShort(p.writeBy)}까지 써두면 안전해요.`
+      : '마감 전에 쓸 수 있는 날이 없어요. 마감일이나 일정을 조정해 주세요.'}`;
+  } else {
+    text = `<strong>마감일에 ‘${evName}’ 일정이 있어요.</strong><br/>${p.writeBy
+      ? `${fmtShort(p.writeBy)}에 미리 써두는 걸 권해요${p.load >= 3 ? ` (그날 ${p.load}건 몰림)` : ''}.`
+      : '마감 전에 여유 있는 날이 없어요.'}`;
+  }
+  return `
+      <div class="callout callout--warn" style="margin-top:14px">${icons.alert}<div>${text}</div></div>
+      ${p.writeBy ? `<button class="btn btn--neutral btn--block" style="margin-top:10px" data-act="pull" data-date="${p.writeBy}">${icons.calendar}내 마감일을 ${fmtShort(p.writeBy)}로 당기기</button>` : ''}`;
+}
 
 /* ------------------------------------------------------------------ */
 /* 카드 렌더                                                            */
@@ -39,6 +68,7 @@ export function jobCardHTML(job, { showDate = true } = {}) {
         ${open && job.deadline ? `<span class="job-card__dday ${ddayCls}">${ddayLabel(job.deadline)}</span>` : ''}
         ${showDate && job.deadline ? `<span class="job-card__date">${fmtDate(job.deadline)} 마감</span>` : ''}
         ${!open && job.appliedAt ? `<span class="job-card__date">${fmtDate(job.appliedAt)} 지원</span>` : ''}
+        ${open ? planChipHTML(job) : ''}
       </div>
     </button>
     <div class="job-card__side">
@@ -140,6 +170,7 @@ export function openJobDetail(id) {
           <span class="detail-row__value" style="white-space:pre-wrap">${esc(job.memo)}</span>
         </div>` : ''}
       </div>
+      ${open ? planCalloutHTML(job) : ''}
     `,
     foot: `
       <button class="btn btn--danger btn--icon-only" data-act="delete" aria-label="공고 삭제">${icons.trash}</button>
@@ -161,6 +192,13 @@ export function openJobDetail(id) {
     openJobDetail(id);
   });
   sheet.querySelector('[data-act="edit"]').addEventListener('click', () => openJobForm(id));
+  sheet.querySelector('[data-act="pull"]')?.addEventListener('click', (e) => {
+    const date = e.currentTarget.dataset.date;
+    updateJob(id, { deadline: date });
+    scheduleSync();
+    toast(`마감일을 ${fmtShort(date)}로 옮겼어요`, { type: 'success' });
+    openJobDetail(id);
+  });
   sheet.querySelector('[data-act="apply"]')?.addEventListener('click', () => {
     setJobStatus(id, 'applied');
     scheduleSync();

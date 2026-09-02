@@ -1,10 +1,12 @@
 /**
- * 현황 뷰 — 취준 진행 상황 요약 통계.
+ * 현황 뷰 — 취준 진행 상황 요약, 일정과 겹치는 마감, 주간 부하.
  */
-import { getJobs, getTodos, ddayOf, fmtDate, todayStr } from '../store.js';
+import { getJobs, getTodos, ddayOf, fmtDate, todayStr, updateJob } from '../store.js';
 import { STATUSES, STATUS_ORDER, isOpenStatus } from '../seed.js';
-import { esc, icons } from '../ui.js';
+import { esc, icons, confirmSheet, toast } from '../ui.js';
+import { scheduleSync } from '../sync.js';
 import { jobCardHTML, bindJobCards } from './jobShared.js';
+import { conflictGroups, weeklyLoad, monthSummary, fmtShort } from '../plan.js';
 
 export function renderDashboard(root, { goTo }) {
   const jobs = getJobs();
@@ -25,22 +27,46 @@ export function renderDashboard(root, { goTo }) {
   const total = jobs.length;
   const progress = total ? Math.round((done.length / total) * 100) : 0;
 
-  // 상태 분포
   const statusCounts = STATUS_ORDER
     .map((key) => ({ key, ...STATUSES[key], count: jobs.filter((j) => j.status === key).length }))
     .filter((s) => s.count > 0);
   const maxCount = Math.max(1, ...statusCounts.map((s) => s.count));
+
+  const month = monthSummary();
+  const conflicts = conflictGroups();
+  const weeks = weeklyLoad(5);
 
   // 헤드라인 문구
   let headline;
   if (urgent.length) {
     const first = urgent[0];
     headline = `<span class="accent-red">${first.d === 0 ? '오늘' : `${first.d}일 뒤`}</span> <em>${esc(first.j.company)}</em> 마감${urgent.length > 1 ? ` 외 ${urgent.length - 1}건이 임박했어요` : '이에요'}`;
+  } else if (conflicts.total) {
+    headline = `개인 일정과 겹치는 마감이 <em>${conflicts.total}건</em> 있어요`;
   } else if (open.length) {
     headline = `남은 공고 <em>${open.length}건</em>, 차근차근 가고 있어요`;
   } else {
     headline = '남은 공고를 모두 처리했어요 🎉';
   }
+
+  const groupHTML = (g) => {
+    const who = g.jobs.map((j) => esc(j.company)).join(' · ');
+    const evName = g.event ? esc(g.event.title) : '개인 일정';
+    const hot = g.load >= 3;
+    const dayCls = g.kind === 'hard' && hot ? 'plan-row__day--warn' : '';
+    return `
+      <button class="plan-row" data-pull="${g.jobs.map((j) => j.id).join(',')}" data-date="${g.writeBy || ''}" ${g.writeBy ? '' : 'disabled'}>
+        <span>
+          <span class="plan-row__who">${who}</span>
+          <span class="plan-row__why">${fmtShort(g.deadline)} 마감 · <b>${evName}</b></span>
+        </span>
+        <span class="plan-row__to">
+          <span class="plan-row__arrow">${g.kind === 'none' ? '이때까지' : '미리 쓰기'}</span>
+          <span class="plan-row__day ${dayCls}">${g.writeBy ? fmtShort(g.writeBy) : '쓸 날 없음'}</span>
+          <span class="plan-row__load ${hot ? 'plan-row__load--hot' : ''}">${g.writeBy ? `그날 마감 ${g.load}건${hot ? ' 몰림' : ''}` : '마감일을 조정해 주세요'}</span>
+        </span>
+      </button>`;
+  };
 
   root.innerHTML = `
     <div class="hero">
@@ -73,6 +99,30 @@ export function renderDashboard(root, { goTo }) {
       </div>
     </section>
 
+    <section class="section">
+      <div class="section__head">
+        <div>
+          <h3 class="section__title">${month.monthLabel} 남은 기간</h3>
+          <p class="section__desc">개인 일정을 뺀 실제로 쓸 수 있는 날</p>
+        </div>
+        <button class="section__action" data-go="calendar">캘린더 ${icons.chevronRight}</button>
+      </div>
+      <div class="stat-grid stat-grid--3">
+        <div class="stat stat--teal">
+          <span class="stat__label">쓸 수 있는 저녁</span>
+          <span class="stat__value">${month.freeEvenings}<small>일</small></span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">남은 마감</span>
+          <span class="stat__value">${month.remaining}<small>건</small></span>
+        </div>
+        <div class="stat ${month.conflicts ? 'stat--danger' : ''}">
+          <span class="stat__label">조정 필요</span>
+          <span class="stat__value">${month.conflicts}<small>건</small></span>
+        </div>
+      </div>
+    </section>
+
     ${overdue.length ? `
     <section class="section">
       <div class="callout callout--warn">
@@ -81,6 +131,49 @@ export function renderDashboard(root, { goTo }) {
         실제 마감 전이라면 서둘러 제출하고, 놓쳤다면 상태를 정리해 주세요.</div>
       </div>
     </section>` : ''}
+
+    ${conflicts.total ? `
+    <section class="section">
+      <div class="section__head">
+        <div>
+          <h3 class="section__title">일정과 겹치는 마감</h3>
+          <p class="section__desc">마감 전 가장 여유 있는 날을 골라 제안해요. 누르면 내 마감일을 그날로 당겨요.</p>
+        </div>
+      </div>
+      <div class="card card--pad" data-plan-rows>
+        ${conflicts.none.length ? `
+        <div class="plan-group">
+          <p class="plan-group__title"><i class="cal-legend__sw cal-legend__sw--hatch"></i>작성 불가 기간에 마감 <span class="plan-group__count">${conflicts.none.reduce((s, g) => s + g.jobs.length, 0)}건</span></p>
+          ${conflicts.none.map(groupHTML).join('')}
+        </div>` : ''}
+        ${conflicts.hard.length ? `
+        <div class="plan-group">
+          <p class="plan-group__title"><i class="cal-legend__sw cal-legend__sw--hard"></i>작성 어려운 날에 마감 <span class="plan-group__count">${conflicts.hard.reduce((s, g) => s + g.jobs.length, 0)}건</span></p>
+          ${conflicts.hard.map(groupHTML).join('')}
+        </div>` : ''}
+      </div>
+    </section>` : ''}
+
+    <section class="section">
+      <div class="section__head">
+        <div>
+          <h3 class="section__title">한 주에 몇 건씩 써야 할까</h3>
+          <p class="section__desc">칸 하나가 하루, 숫자는 그날 쓸 공고 수예요</p>
+        </div>
+      </div>
+      <div class="card card--pad">
+        <div class="weeks">
+          ${weeks.map((w) => `
+            <div class="week">
+              <span class="week__rng">${fmtShort(w.start).split(' ')[0]} – ${fmtShort(w.end).split(' ')[0]}${w.current ? '<small>이번 주</small>' : ''}</span>
+              <span class="week__track" aria-label="${w.total}건, 쓸 수 있는 날 ${w.writable}일">
+                ${w.days.map((d) => `<i class="week__day ${d.past ? 'week__day--past' : ''} ${d.avail === 'none' ? 'week__day--block' : d.avail === 'hard' ? 'week__day--hard' : ''} ${d.count >= 4 ? 'week__day--heavy' : ''}">${d.count || ''}</i>`).join('')}
+              </span>
+              <span class="week__sum week__sum--${w.level.key}">${w.total}건 / ${w.writable}일<small>${w.level.label}</small></span>
+            </div>`).join('')}
+        </div>
+      </div>
+    </section>
 
     <section class="section">
       <div class="section__head">
@@ -132,4 +225,21 @@ export function renderDashboard(root, { goTo }) {
   root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => goTo(b.dataset.go)));
   const list = root.querySelector('[data-job-list]');
   if (list) bindJobCards(list);
+
+  root.querySelectorAll('[data-pull]').forEach((b) => b.addEventListener('click', async () => {
+    const ids = b.dataset.pull.split(',').filter(Boolean);
+    const date = b.dataset.date;
+    if (!ids.length || !date) return;
+    const names = ids.map((id) => jobs.find((j) => j.id === id)?.company).filter(Boolean).join(', ');
+    const ok = await confirmSheet({
+      title: `내 마감일을 ${fmtShort(date)}로 당길까요?`,
+      desc: `${names} — 원래 마감일 대신 이 날이 목록과 캘린더에 표시돼요.`,
+      confirmText: '당기기',
+      danger: false,
+    });
+    if (!ok) return;
+    ids.forEach((id) => updateJob(id, { deadline: date }));
+    scheduleSync();
+    toast(`${ids.length}건의 마감일을 ${fmtShort(date)}로 옮겼어요`, { type: 'success' });
+  }));
 }

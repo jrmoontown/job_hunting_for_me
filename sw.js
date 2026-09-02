@@ -1,5 +1,5 @@
 /* 취준 대시보드 — 오프라인 캐시 */
-const CACHE = 'jobhunt-v1';
+const CACHE = 'jobhunt-v2';
 const SHELL = [
   './',
   './index.html',
@@ -9,6 +9,8 @@ const SHELL = [
   './assets/js/sync.js',
   './assets/js/seed.js',
   './assets/js/ui.js',
+  './assets/js/plan.js',
+  './assets/js/views/events.js',
   './assets/js/views/calendar.js',
   './assets/js/views/jobs.js',
   './assets/js/views/todos.js',
