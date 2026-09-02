@@ -663,14 +663,11 @@ button.stat:active { transform: scale(.98); }
   padding: 15px 16px; box-shadow: var(--shadow-sm);
   display: flex; align-items: flex-start; gap: 12px;
   transition: transform .12s var(--ease), box-shadow .15s var(--ease);
-  border-left: 3px solid transparent;
 }
 .job-card:hover { box-shadow: var(--shadow-md); }
 .job-card:active { transform: scale(.99); }
-.job-card--important { border-left-color: var(--danger); }
 .job-card--done { opacity: .62; }
 .job-card--done .job-card__company { text-decoration: line-through; text-decoration-color: var(--text-disabled); }
-.job-card--overdue:not(.job-card--done) { border-left-color: var(--warning); }
 
 .job-card__main { flex: 1; min-width: 0; text-align: left; display: block; }
 .job-card__top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
@@ -699,8 +696,8 @@ button.stat:active { transform: scale(.98); }
   transition: color .15s var(--ease), background .15s var(--ease), transform .15s var(--ease-spring);
 }
 .star-btn svg { width: 19px; height: 19px; }
-.star-btn:hover { background: var(--surface-hover); color: var(--warning); }
-.star-btn[aria-pressed="true"] { color: var(--warning); }
+.star-btn:hover { background: var(--surface-hover); color: var(--danger); }
+.star-btn[aria-pressed="true"] { color: var(--danger); }
 .star-btn[aria-pressed="true"]:active { transform: scale(1.22) rotate(9deg); }
 
 .link-btn {
