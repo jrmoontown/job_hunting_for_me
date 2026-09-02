@@ -906,6 +906,7 @@ button.settings-row:hover { background: var(--surface-hover); }
   /* 캘린더 + 오늘의 일정 2단 배치 */
   .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
   .day-panel { margin-top: 0; position: sticky; top: 24px; }
+  .cal-month-events { grid-column: 1; margin-top: -8px; }
 
   .job-card { padding: 17px 18px; }
   .job-card__company { font-size: 16px; }

@@ -169,19 +169,19 @@ export function renderCalendar(root) {
             <span class="cal-legend__item"><i class="cal-dot cal-dot--todo"></i>할 일</span>
           </div>
         </div>
-        ${monthEvents.length && showEvents ? `
-        <div class="section" style="margin-top:16px">
-          <div class="section__head">
-            <div>
-              <h3 class="section__title">${m + 1}월 개인 일정</h3>
-              <p class="section__desc">누르면 수정할 수 있어요</p>
-            </div>
-            <button class="section__action" data-add-event>${icons.plus}일정 추가</button>
-          </div>
-          <div class="evt-list" data-event-list>${monthEvents.map(eventCardHTML).join('')}</div>
-        </div>` : ''}
       </section>
       <section class="day-panel" id="dayPanel"></section>
+      ${monthEvents.length && showEvents ? `
+      <section class="section cal-month-events">
+        <div class="section__head">
+          <div>
+            <h3 class="section__title">${m + 1}월 개인 일정</h3>
+            <p class="section__desc">누르면 수정할 수 있어요</p>
+          </div>
+          <button class="section__action" data-add-event>${icons.plus}일정 추가</button>
+        </div>
+        <div class="evt-list" data-event-list>${monthEvents.map(eventCardHTML).join('')}</div>
+      </section>` : ''}
     </div>`;
 
   renderDayPanel(root.querySelector('#dayPanel'), { jobsByDate, todosByDate, events });
