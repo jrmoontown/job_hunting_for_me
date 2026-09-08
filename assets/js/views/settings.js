@@ -2,8 +2,24 @@
  * 설정 뷰 — Gist 동기화, 데이터 백업/복원, 테마, 초기화.
  */
 import { getSettings, persistSettings, serialize, replaceAll, resetAll } from '../store.js';
-import { connect, disconnect, syncNow, isConfigured, getSyncState } from '../sync.js';
+import { connect, disconnect, syncNow, isConfigured, getSyncState, statusUrl } from '../sync.js';
+import { buildStatusMarkdown } from '../status.js';
 import { esc, icons, openSheet, closeSheet, confirmSheet, toast } from '../ui.js';
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* 아래 폴백 */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
+}
+
+/** Claude 프로젝트 지침에 붙여 넣을 문장 */
+const projectInstruction = (url) => `내 취업 준비 현황은 아래 링크의 마크다운 파일에 있어. 취준·지원·일정 관련 질문을 받으면 먼저 이 링크를 웹에서 가져와 읽고, 그 내용을 기준으로 답해 줘. 파일은 내 취준 대시보드 앱이 자동으로 갱신하니까 대화마다 다시 읽어 줘.
+${url}`;
 
 export function renderSettings(root, { applyTheme }) {
   const settings = getSettings();
@@ -41,6 +57,14 @@ export function renderSettings(root, { applyTheme }) {
           </div>
           <button class="switch" role="switch" aria-checked="${settings.autoSync}" data-act="auto-sync" aria-label="자동 동기화 토글"></button>
         </div>
+        <button class="settings-row" data-act="share-claude">
+          <span class="settings-row__icon" style="background:var(--violet-50);color:var(--violet-500)">${icons.link}</span>
+          <div class="settings-row__text">
+            <p class="settings-row__title">Claude 프로젝트에 현황 공유</p>
+            <p class="settings-row__desc">앱이 만드는 현황 요약 링크를 프로젝트 지침에 넣어요</p>
+          </div>
+          <span class="settings-row__arrow">${icons.chevronRight}</span>
+        </button>
         <button class="settings-row settings-row--danger" data-act="disconnect">
           <span class="settings-row__icon">${icons.cloudOff}</span>
           <div class="settings-row__text">
@@ -168,6 +192,63 @@ export function renderSettings(root, { applyTheme }) {
     const ok = await syncNow();
     toast(ok ? '동기화 완료!' : `동기화 실패 — ${getSyncState().message}`, { type: ok ? 'success' : 'error' });
     renderSettings(root, { applyTheme });
+  });
+
+  root.querySelector('[data-act="share-claude"]')?.addEventListener('click', async () => {
+    let url = statusUrl();
+    if (!url) {
+      toast('링크를 만들기 위해 한 번 동기화할게요…');
+      await syncNow({ silent: true });
+      url = statusUrl();
+      if (!url) { toast(`동기화가 안 됐어요 — ${getSyncState().message || '잠시 후 다시 시도해 주세요'}`, { type: 'error' }); return; }
+    }
+    const sheet = openSheet({
+      title: 'Claude 프로젝트에 현황 공유',
+      desc: '링크 하나로 Claude가 내 최신 취준 현황을 읽어요',
+      body: `
+        <div class="field">
+          <label class="field__label" for="statusUrl">현황 요약 링크 (status.md)</label>
+          <div class="quick-add" style="margin:0">
+            <input class="input" id="statusUrl" value="${esc(url)}" readonly aria-label="현황 요약 링크" />
+            <button class="quick-add__btn" type="button" data-copy="url" aria-label="링크 복사">${icons.link}</button>
+          </div>
+          <p class="field__hint">앱에서 내용을 바꾸면 동기화 때 같이 갱신돼요. 최신 내용이 반영되기까지 최대 5분 정도 걸릴 수 있어요.</p>
+        </div>
+
+        <div class="field">
+          <span class="field__label">프로젝트 지침에 붙여 넣을 문장</span>
+          <div class="code-block" style="white-space:pre-wrap;font-family:inherit;font-size:13px" id="projectInstruction">${esc(projectInstruction(url))}</div>
+          <button class="btn btn--neutral btn--block" style="margin-top:8px" data-copy="instruction">${icons.memo}문장 복사</button>
+        </div>
+
+        <div class="callout" style="margin-bottom:12px">
+          ${icons.info}
+          <div>
+            <strong>설정 방법</strong><br/>
+            1. claude.ai → 프로젝트 → 원하는 프로젝트 열기<br/>
+            2. 오른쪽 <strong>프로젝트 지침</strong>(Set project instructions)에 위 문장 붙여 넣고 저장<br/>
+            3. 대화에서 “지금 내 취준 현황 어때?”처럼 물어보면 링크를 읽고 답해요
+          </div>
+        </div>
+
+        <div class="callout callout--warn" style="margin-bottom:8px">
+          ${icons.alert}
+          <div>이 링크는 로그인 없이 열려요. 주소를 추측하기는 어렵지만, <strong>링크를 아는 사람은 누구나</strong> 내 현황을 볼 수 있으니 외부에 올리지 마세요.</div>
+        </div>
+
+        <details style="margin-top:6px">
+          <summary style="cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text-secondary);padding:6px 2px">Claude가 읽게 될 내용 미리보기</summary>
+          <div class="code-block" style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;margin-top:8px;max-height:320px;overflow:auto">${esc(buildStatusMarkdown())}</div>
+        </details>
+      `,
+      foot: '<button class="btn btn--primary" data-close>확인</button>',
+    });
+    sheet.querySelector('[data-copy="url"]').addEventListener('click', async () => {
+      toast((await copyText(url)) ? '링크를 복사했어요' : '복사에 실패했어요. 길게 눌러 직접 복사해 주세요', { type: 'success' });
+    });
+    sheet.querySelector('[data-copy="instruction"]').addEventListener('click', async () => {
+      toast((await copyText(projectInstruction(url))) ? '문장을 복사했어요. 프로젝트 지침에 붙여 넣으세요' : '복사에 실패했어요', { type: 'success', duration: 3200 });
+    });
   });
 
   root.querySelector('[data-act="auto-sync"]')?.addEventListener('click', (e) => {

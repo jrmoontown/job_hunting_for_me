@@ -5,9 +5,33 @@
  * - 토큰은 이 브라우저의 localStorage에만 저장되고 GitHub API 외에는 어디에도 전송되지 않는다
  */
 import { getSettings, persistSettings, serialize, mergeSnapshot } from './store.js';
+import { buildStatusMarkdown } from './status.js';
 
 const API = 'https://api.github.com';
 const FILENAME = 'jobhunt-data.json';
+/** 사람이 읽는 현황 요약 — Claude 프로젝트 등에서 링크로 읽는 용도 */
+export const STATUS_FILE = 'status.md';
+
+/** Gist에 올릴 파일 묶음: 데이터(JSON) + 현황 요약(MD) */
+const filesPayload = () => ({
+  [FILENAME]: { content: JSON.stringify(serialize(), null, 2) },
+  [STATUS_FILE]: { content: buildStatusMarkdown() },
+});
+
+/** Gist 응답에서 소유자 로그인을 기억해 둔다 (raw 링크 만들 때 필요) */
+function rememberOwner(g) {
+  const login = g?.owner?.login;
+  if (login && getSettings().gistOwner !== login) {
+    getSettings().gistOwner = login;
+    persistSettings();
+  }
+}
+
+/** Claude 프로젝트 등에 붙여 넣을 현황 요약 링크 (항상 최신 버전을 가리킴) */
+export function statusUrl() {
+  const { gistId, gistOwner } = getSettings();
+  return gistId && gistOwner ? `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${STATUS_FILE}` : '';
+}
 const GIST_DESC = '취준 대시보드 데이터 (자동 동기화)';
 
 const listeners = new Set();
@@ -52,17 +76,15 @@ async function findExistingGist() {
 async function createGist() {
   const g = await api('/gists', {
     method: 'POST',
-    body: {
-      description: GIST_DESC,
-      public: false,
-      files: { [FILENAME]: { content: JSON.stringify(serialize(), null, 2) } },
-    },
+    body: { description: GIST_DESC, public: false, files: filesPayload() },
   });
+  rememberOwner(g);
   return g.id;
 }
 
 async function readGist(gistId) {
   const g = await api(`/gists/${gistId}`);
+  rememberOwner(g);
   const file = g.files && g.files[FILENAME];
   if (!file) return null;
   let content = file.content;
@@ -73,10 +95,8 @@ async function readGist(gistId) {
 }
 
 async function writeGist(gistId) {
-  await api(`/gists/${gistId}`, {
-    method: 'PATCH',
-    body: { files: { [FILENAME]: { content: JSON.stringify(serialize(), null, 2) } } },
-  });
+  const g = await api(`/gists/${gistId}`, { method: 'PATCH', body: { files: filesPayload() } });
+  rememberOwner(g);
 }
 
 /** 토큰 등록 직후 초기 연결: 기존 Gist 탐색 → 없으면 생성 */

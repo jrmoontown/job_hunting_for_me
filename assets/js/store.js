@@ -29,6 +29,7 @@ const settings = {
   theme: 'auto',            // 'auto' | 'light' | 'dark'
   gistToken: '',
   gistId: '',
+  gistOwner: '',
   autoSync: true,
   lastSyncAt: '',
 };
