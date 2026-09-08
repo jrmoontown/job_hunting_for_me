@@ -27,10 +27,31 @@ function rememberOwner(g) {
   }
 }
 
-/** Claude 프로젝트 등에 붙여 넣을 현황 요약 링크 (항상 최신 버전을 가리킴) */
+/** Gist raw 링크 — 항상 최신 버전을 가리키지만, robots.txt 때문에 Claude 웹 가져오기가 읽지 못한다 */
 export function statusUrl() {
   const { gistId, gistOwner } = getSettings();
   return gistId && gistOwner ? `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${STATUS_FILE}` : '';
+}
+
+/** 사이트에 올라가는 현황 요약 경로 키 — 배포 워크플로와 같은 방식(sha256(gistId) 앞 16자리) */
+export async function statusKey() {
+  const { gistId } = getSettings();
+  if (!gistId || !globalThis.crypto?.subtle) return '';
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(gistId));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+/** Claude 프로젝트에 붙여 넣을 링크 — 우리 사이트(GitHub Pages)에 20분마다 복사되는 status.md */
+export async function pagesStatusUrl() {
+  const key = await statusKey();
+  return key ? new URL(`s/${key}.md`, location.href.split('#')[0]).href : '';
+}
+
+/** 이 사이트가 올라간 GitHub 저장소 주소 (Pages 주소에서 추정, 아니면 빈 값) */
+export function repoUrl() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  const repo = location.pathname.split('/').filter(Boolean)[0];
+  return m && repo ? `https://github.com/${m[1]}/${repo}` : '';
 }
 const GIST_DESC = '취준 대시보드 데이터 (자동 동기화)';
 

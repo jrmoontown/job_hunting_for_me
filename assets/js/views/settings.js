@@ -2,7 +2,7 @@
  * 설정 뷰 — Gist 동기화, 데이터 백업/복원, 테마, 초기화.
  */
 import { getSettings, persistSettings, serialize, replaceAll, resetAll } from '../store.js';
-import { connect, disconnect, syncNow, isConfigured, getSyncState, statusUrl } from '../sync.js';
+import { connect, disconnect, syncNow, isConfigured, getSyncState, pagesStatusUrl, repoUrl } from '../sync.js';
 import { buildStatusMarkdown } from '../status.js';
 import { esc, icons, openSheet, closeSheet, confirmSheet, toast } from '../ui.js';
 
@@ -18,8 +18,17 @@ async function copyText(text) {
 }
 
 /** Claude 프로젝트 지침에 붙여 넣을 문장 */
-const projectInstruction = (url) => `내 취업 준비 현황은 아래 링크의 마크다운 파일에 있어. 취준·지원·일정 관련 질문을 받으면 먼저 이 링크를 웹에서 가져와 읽고, 그 내용을 기준으로 답해 줘. 파일은 내 취준 대시보드 앱이 자동으로 갱신하니까 대화마다 다시 읽어 줘.
+const projectInstruction = (url) => `내 취업 준비 현황은 아래 링크의 마크다운 파일에 있어. 취준·지원·일정 관련 질문을 받으면 먼저 웹 가져오기(fetch) 도구로 이 링크를 열어 읽고, 그 내용을 기준으로 답해 줘. 파일은 내 취준 대시보드 앱이 자동으로 갱신하니까 대화마다 다시 읽어 줘. 링크를 못 열면 추측하지 말고, 앱의 "설정 → 현황 복사"로 붙여 넣어 달라고 나에게 말해 줘.
 ${url}`;
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 export function renderSettings(root, { applyTheme }) {
   const settings = getSettings();
@@ -195,45 +204,60 @@ export function renderSettings(root, { applyTheme }) {
   });
 
   root.querySelector('[data-act="share-claude"]')?.addEventListener('click', async () => {
-    let url = statusUrl();
+    const { gistId } = getSettings();
+    let url = await pagesStatusUrl();
     if (!url) {
       toast('링크를 만들기 위해 한 번 동기화할게요…');
       await syncNow({ silent: true });
-      url = statusUrl();
+      url = await pagesStatusUrl();
       if (!url) { toast(`동기화가 안 됐어요 — ${getSyncState().message || '잠시 후 다시 시도해 주세요'}`, { type: 'error' }); return; }
     }
+    const repo = repoUrl();
+    const secretsUrl = repo ? `${repo}/settings/secrets/actions/new` : '';
+    const actionsUrl = repo ? `${repo}/actions/workflows/deploy.yml` : '';
+
     const sheet = openSheet({
       title: 'Claude 프로젝트에 현황 공유',
       desc: '링크 하나로 Claude가 내 최신 취준 현황을 읽어요',
       body: `
         <div class="field">
-          <label class="field__label" for="statusUrl">현황 요약 링크 (status.md)</label>
+          <label class="field__label" for="statusUrl">Claude가 읽을 링크</label>
           <div class="quick-add" style="margin:0">
             <input class="input" id="statusUrl" value="${esc(url)}" readonly aria-label="현황 요약 링크" />
             <button class="quick-add__btn" type="button" data-copy="url" aria-label="링크 복사">${icons.link}</button>
           </div>
-          <p class="field__hint">앱에서 내용을 바꾸면 동기화 때 같이 갱신돼요. 최신 내용이 반영되기까지 최대 5분 정도 걸릴 수 있어요.</p>
+          <p class="field__hint">앱에서 바꾼 내용이 이 링크에 반영되기까지 <strong>최대 20분</strong> 걸려요 (20분마다 자동 갱신). 주소는 추측할 수 없게 만들었지만 로그인 없이 열리니 외부에 올리지 마세요.</p>
+        </div>
+
+        <div class="callout" style="margin-bottom:14px">
+          ${icons.key}
+          <div>
+            <strong>처음 한 번: 저장소에 GIST_ID 등록</strong><br/>
+            링크가 동작하려면 GitHub 저장소가 내 Gist를 알아야 해요.<br/>
+            1. ${secretsUrl ? `<a href="${esc(secretsUrl)}" target="_blank" rel="noopener noreferrer">저장소 Settings → Secrets → New repository secret ↗</a>` : '저장소 Settings → Secrets and variables → Actions → New repository secret'}<br/>
+            2. Name에 <strong>GIST_ID</strong>, Secret에 아래 값을 붙여 넣고 Add secret<br/>
+            3. ${actionsUrl ? `<a href="${esc(actionsUrl)}" target="_blank" rel="noopener noreferrer">Actions → Deploy to GitHub Pages → Run workflow ↗</a>` : 'Actions → Deploy to GitHub Pages → Run workflow'} 로 한 번 실행 (이후엔 자동)
+          </div>
+        </div>
+        <div class="quick-add" style="margin:0 0 18px">
+          <input class="input" value="${esc(gistId)}" readonly aria-label="Gist ID" />
+          <button class="quick-add__btn" type="button" data-copy="gist" aria-label="Gist ID 복사">${icons.key}</button>
         </div>
 
         <div class="field">
           <span class="field__label">프로젝트 지침에 붙여 넣을 문장</span>
-          <div class="code-block" style="white-space:pre-wrap;word-break:break-all;font-family:inherit;font-size:13px" id="projectInstruction">${esc(projectInstruction(url))}</div>
+          <div class="code-block" style="white-space:pre-wrap;word-break:break-all;font-family:inherit;font-size:13px">${esc(projectInstruction(url))}</div>
           <button class="btn btn--neutral btn--block" style="margin-top:8px" data-copy="instruction">${icons.memo}문장 복사</button>
+          <p class="field__hint">claude.ai → 프로젝트 → 오른쪽 <strong>프로젝트 지침</strong>에 붙여 넣고 저장하세요.</p>
         </div>
 
-        <div class="callout" style="margin-bottom:12px">
-          ${icons.info}
-          <div>
-            <strong>설정 방법</strong><br/>
-            1. claude.ai → 프로젝트 → 원하는 프로젝트 열기<br/>
-            2. 오른쪽 <strong>프로젝트 지침</strong>(Set project instructions)에 위 문장 붙여 넣고 저장<br/>
-            3. 대화에서 “지금 내 취준 현황 어때?”처럼 물어보면 링크를 읽고 답해요
+        <div class="field">
+          <span class="field__label">링크가 안 될 때 — 직접 건네주기</span>
+          <div class="field-row">
+            <button class="btn btn--neutral" data-copy="markdown">${icons.memo}현황 복사</button>
+            <button class="btn btn--neutral" data-act="download">${icons.download}파일 내려받기</button>
           </div>
-        </div>
-
-        <div class="callout callout--warn" style="margin-bottom:8px">
-          ${icons.alert}
-          <div>이 링크는 로그인 없이 열려요. 주소를 추측하기는 어렵지만, <strong>링크를 아는 사람은 누구나</strong> 내 현황을 볼 수 있으니 외부에 올리지 마세요.</div>
+          <p class="field__hint">복사한 현황을 채팅에 붙여 넣거나, 내려받은 status.md를 프로젝트 지식(Knowledge)에 올리면 돼요.</p>
         </div>
 
         <details style="margin-top:6px">
@@ -243,11 +267,18 @@ export function renderSettings(root, { applyTheme }) {
       `,
       foot: '<button class="btn btn--primary" data-close>확인</button>',
     });
-    sheet.querySelector('[data-copy="url"]').addEventListener('click', async () => {
-      toast((await copyText(url)) ? '링크를 복사했어요' : '복사에 실패했어요. 길게 눌러 직접 복사해 주세요', { type: 'success' });
-    });
-    sheet.querySelector('[data-copy="instruction"]').addEventListener('click', async () => {
-      toast((await copyText(projectInstruction(url))) ? '문장을 복사했어요. 프로젝트 지침에 붙여 넣으세요' : '복사에 실패했어요', { type: 'success', duration: 3200 });
+    const say = (ok, good, bad) => toast(ok ? good : bad, { type: ok ? 'success' : 'error', duration: 3000 });
+    sheet.querySelector('[data-copy="url"]').addEventListener('click', async () =>
+      say(await copyText(url), '링크를 복사했어요', '복사에 실패했어요. 길게 눌러 직접 복사해 주세요'));
+    sheet.querySelector('[data-copy="gist"]').addEventListener('click', async () =>
+      say(await copyText(gistId), 'Gist ID를 복사했어요. GitHub 시크릿에 붙여 넣으세요', '복사에 실패했어요'));
+    sheet.querySelector('[data-copy="instruction"]').addEventListener('click', async () =>
+      say(await copyText(projectInstruction(url)), '문장을 복사했어요. 프로젝트 지침에 붙여 넣으세요', '복사에 실패했어요'));
+    sheet.querySelector('[data-copy="markdown"]').addEventListener('click', async () =>
+      say(await copyText(buildStatusMarkdown()), '현황을 복사했어요. 채팅에 붙여 넣으세요', '복사에 실패했어요'));
+    sheet.querySelector('[data-act="download"]').addEventListener('click', () => {
+      downloadText('status.md', buildStatusMarkdown());
+      toast('status.md를 내려받았어요', { type: 'success' });
     });
   });
 
