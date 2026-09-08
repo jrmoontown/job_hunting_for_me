@@ -217,7 +217,7 @@ export function renderSettings(root, { applyTheme }) {
 
         <div class="field">
           <span class="field__label">프로젝트 지침에 붙여 넣을 문장</span>
-          <div class="code-block" style="white-space:pre-wrap;font-family:inherit;font-size:13px" id="projectInstruction">${esc(projectInstruction(url))}</div>
+          <div class="code-block" style="white-space:pre-wrap;word-break:break-all;font-family:inherit;font-size:13px" id="projectInstruction">${esc(projectInstruction(url))}</div>
           <button class="btn btn--neutral btn--block" style="margin-top:8px" data-copy="instruction">${icons.memo}문장 복사</button>
         </div>
 
@@ -238,7 +238,7 @@ export function renderSettings(root, { applyTheme }) {
 
         <details style="margin-top:6px">
           <summary style="cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text-secondary);padding:6px 2px">Claude가 읽게 될 내용 미리보기</summary>
-          <div class="code-block" style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;margin-top:8px;max-height:320px;overflow:auto">${esc(buildStatusMarkdown())}</div>
+          <div class="code-block" style="white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:12.5px;margin-top:8px;max-height:320px;overflow:auto">${esc(buildStatusMarkdown())}</div>
         </details>
       `,
       foot: '<button class="btn btn--primary" data-close>확인</button>',
