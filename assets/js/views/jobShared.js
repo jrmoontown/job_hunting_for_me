@@ -158,6 +158,16 @@ export function openJobDetail(id) {
           <span class="detail-row__label">지원일</span>
           <span class="detail-row__value">${fmtDate(job.appliedAt, { withYear: true })}</span>
         </div>` : ''}
+        ${!open && job.resultDate ? `
+        <div class="detail-row">
+          <span class="detail-row__label">발표 예정일</span>
+          <span class="detail-row__value">${fmtDate(job.resultDate, { withYear: true })}</span>
+        </div>` : ''}
+        ${!open && job.interviewDate ? `
+        <div class="detail-row">
+          <span class="detail-row__label">면접일</span>
+          <span class="detail-row__value">${fmtDate(job.interviewDate, { withYear: true })}</span>
+        </div>` : ''}
         <div class="detail-row">
           <span class="detail-row__label">채용 링크</span>
           <span class="detail-row__value">${job.url
@@ -177,7 +187,7 @@ export function openJobDetail(id) {
       <button class="btn btn--neutral" data-act="edit">${icons.edit}수정</button>
       ${open
         ? '<button class="btn btn--primary" data-act="apply">지원 완료로 표시</button>'
-        : '<button class="btn btn--primary" data-act="close-sheet">확인</button>'}
+        : '<button class="btn btn--primary" data-act="pipeline">전형 관리</button>'}
     `,
   });
 
@@ -203,9 +213,13 @@ export function openJobDetail(id) {
     setJobStatus(id, 'applied');
     scheduleSync();
     closeSheet();
-    toast(`${job.company} 지원 완료! 수고했어요 🎉`, { type: 'success' });
+    toast(`${job.company} 지원 완료! 수고했어요 🎉 결과는 전형 탭에서 관리해요`, { type: 'success', duration: 3200 });
   });
-  sheet.querySelector('[data-act="close-sheet"]')?.addEventListener('click', closeSheet);
+  sheet.querySelector('[data-act="pipeline"]')?.addEventListener('click', async () => {
+    closeSheet();
+    const m = await import('./pipeline.js');
+    m.openPipelineSheet(id);
+  });
   sheet.querySelector('[data-act="delete"]').addEventListener('click', async () => {
     closeSheet();
     const ok = await confirmSheet({

@@ -10,6 +10,7 @@ import { renderJobs } from './views/jobs.js';
 import { renderTodos } from './views/todos.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderSettings } from './views/settings.js';
+import { renderPipeline, pipelineStats, overdueResultCount } from './views/pipeline.js';
 import { openJobForm } from './views/jobShared.js';
 import { openTodoForm } from './views/todos.js';
 import { openAddChooser } from './views/events.js';
@@ -18,11 +19,14 @@ import { getPlan } from './plan.js';
 const ROUTES = {
   calendar: { title: '캘린더', icon: 'calendar', render: renderCalendar, caption: () => monthCaption() },
   jobs: { title: '공고', icon: 'briefcase', render: renderJobs, caption: () => jobsCaption() },
+  pipeline: { title: '전형', icon: 'pipeline', render: renderPipeline, caption: () => pipelineCaption() },
   todos: { title: '투두', icon: 'check', render: renderTodos, caption: () => todosCaption() },
   dashboard: { title: '현황', icon: 'chart', render: (el2) => renderDashboard(el2, { goTo }), caption: () => '' },
   settings: { title: '설정', icon: 'gear', render: (el2) => renderSettings(el2, { applyTheme }), caption: () => '' },
 };
-const NAV_ORDER = ['calendar', 'jobs', 'todos', 'dashboard', 'settings'];
+/** 모바일 하단 탭은 다섯 개까지 — 설정은 상단 톱니 아이콘으로 */
+const TAB_ORDER = ['calendar', 'jobs', 'pipeline', 'todos', 'dashboard'];
+const SIDE_ORDER = ['calendar', 'jobs', 'pipeline', 'todos', 'dashboard', 'settings'];
 
 const view = document.getElementById('view');
 let current = '';
@@ -45,6 +49,11 @@ function jobsCaption() {
   const open = jobs.filter((j) => isOpenStatus(j.status)).length;
   return `예정 ${open}건 · 완료 ${jobs.length - open}건`;
 }
+function pipelineCaption() {
+  const s = pipelineStats();
+  if (!s.jobs.length) return '지원 완료한 공고가 여기 모여요';
+  return s.waiting.length ? `결과 대기 ${s.waiting.length}건 · 가장 오래 ${s.maxWait}일` : `진행 중 ${s.progress.length}건 · 마무리 ${s.done.length}건`;
+}
 function todosCaption() {
   const open = getTodos().filter((t) => !t.done).length;
   return open ? `진행 중 ${open}건` : '모두 완료!';
@@ -63,22 +72,16 @@ function urgentCount() {
 /* 네비게이션                                                            */
 /* ------------------------------------------------------------------ */
 function buildNav() {
-  const badge = urgentCount();
-  const tabbar = document.querySelector('.tabbar');
-  tabbar.innerHTML = NAV_ORDER.map((key) => `
-    <a class="tabbar__item" href="#/${key}" ${current === key ? 'aria-current="page"' : ''}>
+  const badges = { jobs: urgentCount(), pipeline: overdueResultCount() };
+  const item = (cls, badgeCls) => (key) => `
+    <a class="${cls}" href="#/${key}" ${current === key ? 'aria-current="page"' : ''}>
       ${icons[ROUTES[key].icon]}
       <span>${ROUTES[key].title}</span>
-      ${key === 'jobs' && badge ? `<span class="tabbar__badge">${badge}</span>` : ''}
-    </a>`).join('');
-
-  const menu = document.querySelector('.sidenav__menu');
-  menu.innerHTML = NAV_ORDER.map((key) => `
-    <a class="sidenav__item" href="#/${key}" ${current === key ? 'aria-current="page"' : ''}>
-      ${icons[ROUTES[key].icon]}
-      <span>${ROUTES[key].title}</span>
-      ${key === 'jobs' && badge ? `<span class="sidenav__badge">${badge}</span>` : ''}
-    </a>`).join('');
+      ${badges[key] ? `<span class="${badgeCls}">${badges[key]}</span>` : ''}
+    </a>`;
+  document.querySelector('.tabbar').innerHTML = TAB_ORDER.map(item('tabbar__item', 'tabbar__badge')).join('');
+  document.querySelector('.sidenav__menu').innerHTML = SIDE_ORDER.map(item('sidenav__item', 'sidenav__badge')).join('');
+  document.getElementById('settingsBtn').classList.toggle('is-active', current === 'settings');
 
   document.getElementById('sidenavSubtitle').textContent = monthCaption();
 }
@@ -152,6 +155,8 @@ document.getElementById('fab').addEventListener('click', () => {
   else openAddChooser();
 });
 
+document.getElementById('settingsBtn').addEventListener('click', () => goTo('settings'));
+
 document.getElementById('syncBtn').addEventListener('click', async () => {
   if (!isConfigured()) { goTo('settings'); return; }
   await syncNow();
@@ -170,6 +175,7 @@ document.getElementById('themeToggle').addEventListener('click', () => {
 /* ------------------------------------------------------------------ */
 load();
 applyTheme();
+document.getElementById('settingsBtn').innerHTML = icons.gear;
 route();
 renderSyncUI();
 

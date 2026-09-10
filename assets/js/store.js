@@ -72,6 +72,7 @@ export function load() {
     state.events = Array.isArray(raw.events) ? raw.events : [];
     state.deleted = raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {};
     state.meta = raw.meta || { updatedAt: now(), seedVersion: 0 };
+    state.jobs.forEach(normalizeJob);
     migrate();
   } else {
     // 최초 실행 → 시드 데이터 주입
@@ -80,7 +81,22 @@ export function load() {
     state.events = structuredClone(SEED_EVENTS);
     state.deleted = {};
     state.meta = { updatedAt: now(), seedVersion: SEED_VERSION };
+    state.jobs.forEach(normalizeJob);
     persist();
+  }
+}
+
+/** 예전 데이터에 전형 필드가 없으면 채워 넣는다 (발표 예정일 · 면접일 · 전형 기록) */
+function normalizeJob(j) {
+  if (j.resultDate === undefined) j.resultDate = '';
+  if (j.interviewDate === undefined) j.interviewDate = '';
+  if (!Array.isArray(j.history)) {
+    j.history = [];
+    if (j.status && j.status !== 'planned') {
+      const applied = j.appliedAt || (j.updatedAt || '').slice(0, 10) || todayStr();
+      j.history.push({ status: 'applied', at: applied });
+      if (j.status !== 'applied') j.history.push({ status: j.status, at: (j.updatedAt || '').slice(0, 10) || applied });
+    }
   }
 }
 
@@ -118,6 +134,7 @@ export function addJob(data) {
     id: uid(),
     company: '', position: '', deadline: '', realDeadline: '',
     important: false, status: 'planned', url: '', memo: '', appliedAt: '',
+    resultDate: '', interviewDate: '', history: [],
     ...data,
     createdAt: now(), updatedAt: now(),
   };
@@ -135,13 +152,22 @@ export function updateJob(id, patch) {
 }
 
 export function setJobStatus(id, status) {
-  const patch = { status };
-  // 지원 완료류 상태로 넘어가는데 지원일이 비어 있으면 오늘로 기록
   const job = getJob(id);
-  if (job && status !== 'planned' && !job.appliedAt) {
-    patch.appliedAt = new Date().toISOString().slice(0, 10);
+  if (!job) return null;
+  const today = todayStr();
+  const patch = { status };
+  if (status === 'planned') {
+    // 다시 지원 예정으로 — 전형 기록도 비운다
+    patch.appliedAt = '';
+    patch.history = [];
+    return updateJob(id, patch);
   }
-  if (status === 'planned') patch.appliedAt = '';
+  // 지원 완료류 상태로 넘어가는데 지원일이 비어 있으면 오늘로 기록
+  if (!job.appliedAt) patch.appliedAt = today;
+  const hist = Array.isArray(job.history) ? job.history.slice() : [];
+  if (!hist.length && status !== 'applied') hist.push({ status: 'applied', at: patch.appliedAt || job.appliedAt });
+  if (hist[hist.length - 1]?.status !== status) hist.push({ status, at: today });
+  patch.history = hist;
   return updateJob(id, patch);
 }
 

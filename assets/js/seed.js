@@ -23,7 +23,7 @@ export const AVAIL_RANK = { none: 2, hard: 1, ok: 0 };
 export const STATUSES = {
   planned:   { label: '지원 예정', short: '예정',   color: 'var(--grey-500)',    tone: 'grey',   done: false },
   applied:   { label: '지원 완료', short: '완료',   color: 'var(--primary)',     tone: 'blue',   done: true  },
-  doc_pass:  { label: '서류 합격', short: '서류합격', color: 'var(--success)',   tone: 'green',  done: true  },
+  doc_pass:  { label: '서류 합격', short: '서류합격', color: 'var(--violet-500)', tone: 'violet', done: true  },
   interview: { label: '면접 진행', short: '면접',   color: 'var(--violet-500)',  tone: 'violet', done: true  },
   offer:     { label: '최종 합격', short: '최종합격', color: 'var(--success)',   tone: 'green',  done: true  },
   rejected:  { label: '불합격',    short: '불합격', color: 'var(--danger)',      tone: 'red',    done: true  },

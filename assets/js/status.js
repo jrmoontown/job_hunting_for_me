@@ -100,14 +100,47 @@ export function buildStatusMarkdown() {
   });
   out.push('');
 
-  out.push('## 지원 완료 · 결과');
-  if (!done.length) out.push('- 없음');
-  for (const j of done) {
-    const st = STATUSES[j.status]?.label || j.status;
-    const bits = [st];
+  out.push('## 전형 진행 (지원 완료 이후)');
+  const GROUP = { applied: 'waiting', doc_pass: 'progress', interview: 'progress', offer: 'done', rejected: 'done', dropped: 'done' };
+  const daysSince = (d) => { const n = ddayOf(d); return n === null ? null : -n; };
+  const hist = (j) => (Array.isArray(j.history) && j.history.length
+    ? j.history.map((h) => `${fmtShort(h.at).split(' ')[0]} ${STATUSES[h.status]?.short || h.status}`).join(' → ') : '');
+  const waiting = done.filter((j) => GROUP[j.status] === 'waiting').sort((a, b) => (daysSince(b.appliedAt) || 0) - (daysSince(a.appliedAt) || 0));
+  const progressing = done.filter((j) => GROUP[j.status] === 'progress');
+  const finished = done.filter((j) => GROUP[j.status] === 'done');
+  out.push(`- 결과 대기 ${waiting.length}건 · 진행 중 ${progressing.length}건 · 마무리 ${finished.length}건`);
+  out.push('');
+  out.push(`### 결과 대기 (${waiting.length})`);
+  if (!waiting.length) out.push('- 없음');
+  for (const j of waiting) {
+    const n = daysSince(j.appliedAt);
+    const bits = [];
+    if (j.appliedAt) bits.push(`${fmtShort(j.appliedAt)} 지원${n !== null ? ` · ${n}일째` : ''}`);
+    if (j.resultDate) bits.push(`발표 예정 ${fmtShort(j.resultDate)}${j.resultDate < today ? ' (지남 — 확인 필요)' : ''}`);
     if (j.position) bits.push(j.position);
+    if (j.memo) bits.push(`메모: ${line(j.memo)}`);
+    out.push(`- **${j.company}** — ${bits.join(' · ')}`);
+  }
+  out.push('');
+  out.push(`### 진행 중 (${progressing.length})`);
+  if (!progressing.length) out.push('- 없음');
+  for (const j of progressing) {
+    const bits = [STATUSES[j.status]?.label || j.status];
+    if (j.interviewDate) bits.push(`면접 ${fmtShort(j.interviewDate)}`);
+    if (j.position) bits.push(j.position);
+    if (hist(j)) bits.push(hist(j));
+    if (j.memo) bits.push(`메모: ${line(j.memo)}`);
+    out.push(`- **${j.company}** — ${bits.join(' · ')}`);
+  }
+  out.push('');
+  out.push(`### 마무리 (${finished.length})`);
+  if (!finished.length) out.push('- 없음');
+  for (const j of finished) {
+    const bits = [STATUSES[j.status]?.label || j.status];
+    if (j.position) bits.push(j.position);
+    if (hist(j)) bits.push(hist(j));
     if (j.memo) bits.push(line(j.memo));
-    out.push(`- ${j.appliedAt ? fmtShort(j.appliedAt) : ''} ${j.company} — ${bits.join(' · ')}`.trim());
+    out.push(`- ${j.company} — ${bits.join(' · ')}`);
   }
   out.push('');
 

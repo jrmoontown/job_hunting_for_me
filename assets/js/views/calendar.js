@@ -7,6 +7,7 @@ import { esc, icons } from '../ui.js';
 import { jobCardHTML, bindJobCards } from './jobShared.js';
 import { todoItemHTML, bindTodoList } from './todos.js';
 import { eventCardHTML, bindEventCards, openAddChooser } from './events.js';
+import { pipelineCardHTML, bindPipelineCards } from './pipeline.js';
 import { eventsOn, availabilityOf, addDays } from '../plan.js';
 
 let cursor = null;          // 표시 중인 달 (Date, 1일 고정)
@@ -62,6 +63,13 @@ export function renderCalendar(root) {
     if (!todosByDate.has(t.dueDate)) todosByDate.set(t.dueDate, []);
     todosByDate.get(t.dueDate).push(t);
   });
+  // 면접일 — 지원 완료 이후 단계의 공고
+  const interviewsByDate = new Map();
+  jobs.forEach((j) => {
+    if (!j.interviewDate || isOpenStatus(j.status)) return;
+    if (!interviewsByDate.has(j.interviewDate)) interviewsByDate.set(j.interviewDate, []);
+    interviewsByDate.get(j.interviewDate).push(j);
+  });
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -73,6 +81,7 @@ export function renderCalendar(root) {
     const dow = d.getDay();
     const dayJobs = showJobs ? (jobsByDate.get(key) || []) : [];
     const dayTodos = showTodos ? (todosByDate.get(key) || []) : [];
+    const dayInterviews = showJobs ? (interviewsByDate.get(key) || []) : [];
     const dayEvents = showEvents ? eventsOn(key, events) : [];
     const avail = showEvents ? availabilityOf(key, events) : 'ok';
 
@@ -83,8 +92,9 @@ export function renderCalendar(root) {
       else if (isOpenStatus(j.status)) dots.push('');
       else dots.push('cal-dot--done');
     });
+    dayInterviews.forEach(() => dots.push('cal-dot--interview'));
     dayTodos.forEach((t) => { if (!t.done) dots.push('cal-dot--todo'); });
-    const rank = (c) => (c === 'cal-dot--important' ? 0 : c === '' ? 1 : c === 'cal-dot--todo' ? 2 : 3);
+    const rank = (c) => ({ 'cal-dot--important': 0, '': 1, 'cal-dot--interview': 2, 'cal-dot--todo': 3 }[c] ?? 4);
     dots.sort((a, b) => rank(a) - rank(b));
     const shown = dots.slice(0, 4);
     const more = dots.length - shown.length;
@@ -120,6 +130,7 @@ export function renderCalendar(root) {
     const label = [
       fmtDate(key, { withYear: true }),
       dots.length ? `일정 ${dots.length}개` : '',
+      dayInterviews.length ? `면접 ${dayInterviews.map((j) => j.company).join(', ')}` : '',
       dayEvents.length ? dayEvents.map((e) => e.title).join(', ') : '',
       blocked ? '작성 불가' : avail === 'hard' ? '작성 어려움' : '',
     ].filter(Boolean).join(', ');
@@ -166,6 +177,7 @@ export function renderCalendar(root) {
             <span class="cal-legend__item"><i class="cal-dot"></i>마감</span>
             <span class="cal-legend__item"><i class="cal-dot cal-dot--important"></i>중요</span>
             <span class="cal-legend__item"><i class="cal-dot cal-dot--done"></i>완료</span>
+            <span class="cal-legend__item"><i class="cal-dot cal-dot--interview"></i>면접</span>
             <span class="cal-legend__item"><i class="cal-dot cal-dot--todo"></i>할 일</span>
           </div>
         </div>
@@ -184,7 +196,7 @@ export function renderCalendar(root) {
       </section>` : ''}
     </div>`;
 
-  renderDayPanel(root.querySelector('#dayPanel'), { jobsByDate, todosByDate, events });
+  renderDayPanel(root.querySelector('#dayPanel'), { jobsByDate, todosByDate, interviewsByDate, events });
 
   root.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const nav = b.dataset.nav;
@@ -210,14 +222,15 @@ export function renderCalendar(root) {
   if (evList) bindEventCards(evList);
 }
 
-function renderDayPanel(panel, { jobsByDate, todosByDate, events }) {
+function renderDayPanel(panel, { jobsByDate, todosByDate, interviewsByDate, events }) {
+  const dayInterviews = interviewsByDate.get(selected) || [];
   const dayJobs = (jobsByDate.get(selected) || [])
     .slice()
     .sort((a, b) => (b.important - a.important) || (isOpenStatus(b.status) - isOpenStatus(a.status)) || a.company.localeCompare(b.company, 'ko'));
   const dayTodos = (todosByDate.get(selected) || []).slice().sort((a, b) => a.done - b.done);
   const dayEvents = eventsOn(selected, events);
   const isToday = selected === todayStr();
-  const hasAny = dayJobs.length || dayTodos.length || dayEvents.length;
+  const hasAny = dayJobs.length || dayTodos.length || dayEvents.length || dayInterviews.length;
 
   panel.innerHTML = `
     <div class="day-panel__head">
@@ -226,7 +239,8 @@ function renderDayPanel(panel, { jobsByDate, todosByDate, events }) {
     </div>
     ${hasAny ? `
       ${dayEvents.length ? `<div class="evt-list" data-event-list style="margin-bottom:10px">${dayEvents.map(eventCardHTML).join('')}</div>` : ''}
-      ${dayJobs.length ? `<div class="job-list" data-job-list>${dayJobs.map((j) => jobCardHTML(j, { showDate: false })).join('')}</div>` : ''}
+      ${dayInterviews.length ? `<p class="day-panel__sub">면접</p><div class="pipe-list" data-pipe-list>${dayInterviews.map(pipelineCardHTML).join('')}</div>` : ''}
+      ${dayJobs.length ? `<div class="job-list" data-job-list ${dayInterviews.length ? 'style="margin-top:10px"' : ''}>${dayJobs.map((j) => jobCardHTML(j, { showDate: false })).join('')}</div>` : ''}
       ${dayTodos.length ? `
         <div class="todo-list" data-todo-list style="margin-top:${dayJobs.length || dayEvents.length ? '10px' : '0'}">
           ${dayTodos.map((t) => todoItemHTML(t)).join('')}
@@ -246,6 +260,8 @@ function renderDayPanel(panel, { jobsByDate, todosByDate, events }) {
   if (evList) bindEventCards(evList);
   const jobList = panel.querySelector('[data-job-list]');
   if (jobList) bindJobCards(jobList);
+  const pipeList = panel.querySelector('[data-pipe-list]');
+  if (pipeList) bindPipelineCards(pipeList);
   const todoList = panel.querySelector('[data-todo-list]');
   if (todoList) bindTodoList(todoList);
 }

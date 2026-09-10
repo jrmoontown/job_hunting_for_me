@@ -92,7 +92,7 @@ export function renderDashboard(root, { goTo }) {
           <span class="stat__label">${icons.briefcase}지원 예정</span>
           <span class="stat__value">${open.length}<small>건</small></span>
         </button>
-        <button class="stat stat--success" data-go="jobs">
+        <button class="stat stat--success" data-go="pipeline">
           <span class="stat__label">${icons.check}지원 완료</span>
           <span class="stat__value">${applied.length}<small>건</small></span>
         </button>
@@ -194,7 +194,10 @@ export function renderDashboard(root, { goTo }) {
 
     ${statusCounts.length ? `
     <section class="section">
-      <div class="section__head"><h3 class="section__title">전형 현황</h3></div>
+      <div class="section__head">
+        <h3 class="section__title">전형 현황</h3>
+        <button class="section__action" data-go="pipeline">전형 탭 ${icons.chevronRight}</button>
+      </div>
       <div class="card card--pad">
         <div class="bar-list">
           ${statusCounts.map((s) => `

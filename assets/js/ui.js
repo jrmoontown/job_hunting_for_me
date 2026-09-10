@@ -58,6 +58,8 @@ export const icons = {
   people: I('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9" r="2.6"/><path d="M15.5 14.2a4.6 4.6 0 0 1 5 4.3"/>'),
   heart: I('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/>'),
   flag: I('<path d="M5.5 21V4h11.5l-1.6 4 1.6 4.5H5.5"/>'),
+  pipeline: I('<path d="M4 6.5h16M4 12h9M4 17.5h6"/><path d="m14.5 16.5 2 2 4-4.5"/>'),
+  more: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
 };
 
 /* ------------------------------------------------------------------ */
@@ -130,13 +132,16 @@ export function confirmSheet({ title, desc, confirmText = '삭제', danger = tru
 /* ------------------------------------------------------------------ */
 /* 토스트                                                               */
 /* ------------------------------------------------------------------ */
-export function toast(message, { type = 'default', duration = 2400 } = {}) {
+export function toast(message, { type = 'default', duration, action } = {}) {
   const root = document.getElementById('toastRoot');
   const icon = type === 'success' ? icons.check : type === 'error' ? icons.alert : '';
-  const node = el(`<div class="toast toast--${type}">${icon}<span>${esc(message)}</span></div>`);
+  const node = el(`<div class="toast toast--${type}">${icon}<span>${esc(message)}</span>${action ? `<button class="toast__action" type="button">${esc(action.label)}</button>` : ''}</div>`);
   root.appendChild(node);
-  setTimeout(() => {
+  const dismiss = () => {
+    clearTimeout(timer);
     node.classList.add('is-out');
     setTimeout(() => node.remove(), 240);
-  }, duration);
+  };
+  const timer = setTimeout(dismiss, duration ?? (action ? 5000 : 2400));
+  node.querySelector('.toast__action')?.addEventListener('click', () => { dismiss(); action.onClick?.(); });
 }
