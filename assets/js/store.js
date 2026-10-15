@@ -4,7 +4,7 @@
  * - Gist 동기화(sync.js)가 pull/merge/push 할 때 이 모듈의 직렬화를 사용
  * - 모든 변경은 updatedAt 갱신 → 기기 간 병합 시 최신 수정이 이긴다
  */
-import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_TODOS_V6, SEED_EVENTS, SEED_EVENTS_V6, SEED_STUDIES, SEED_SESSIONS, SEED_VERSION } from './seed.js';
+import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_TODOS_V6, SEED_EVENTS, SEED_EVENTS_V6, SEED_EVENTS_V7, SEED_TODOS_V7, REMOVED_EVENTS_V7, SEED_STUDIES, SEED_SESSIONS, SEED_VERSION } from './seed.js';
 
 const LS_KEY = 'jobhunt.data.v1';
 const LS_SETTINGS = 'jobhunt.settings.v1';
@@ -89,7 +89,8 @@ export function load() {
     state.studies = structuredClone(SEED_STUDIES);
     state.todos.push(...structuredClone(SEED_TODOS_V5), ...structuredClone(SEED_TODOS_V6));
     state.sessions = structuredClone(SEED_SESSIONS);
-    state.events.push(...structuredClone(SEED_EVENTS_V6));
+    state.events.push(...structuredClone(SEED_EVENTS_V6), ...structuredClone(SEED_EVENTS_V7));
+    state.todos.push(...structuredClone(SEED_TODOS_V7));
     state.deleted = {};
     state.meta = { updatedAt: now(), seedVersion: SEED_VERSION };
     state.jobs.forEach(normalizeJob);
@@ -135,6 +136,12 @@ function migrate() {
     }
     addMissing(state.events, SEED_EVENTS_V6);
     addMissing(state.todos, SEED_TODOS_V6);
+  }
+  if (ver < 7) {                                              // v7: 공부 못 하는 날 표시 제거 + 일정·할 일 추가
+    REMOVED_EVENTS_V7.forEach((id) => { state.deleted[id] = now(); });
+    state.events = state.events.filter((e) => !REMOVED_EVENTS_V7.includes(e.id));
+    addMissing(state.events, SEED_EVENTS_V7);
+    addMissing(state.todos, SEED_TODOS_V7);
   }
   state.meta.seedVersion = SEED_VERSION;
   persist();
@@ -462,7 +469,8 @@ export function resetAll() {
   state.events = structuredClone(SEED_EVENTS);
   state.studies = structuredClone(SEED_STUDIES);
   state.sessions = structuredClone(SEED_SESSIONS);
-  state.events.push(...structuredClone(SEED_EVENTS_V6));
+  state.events.push(...structuredClone(SEED_EVENTS_V6), ...structuredClone(SEED_EVENTS_V7));
+  state.todos.push(...structuredClone(SEED_TODOS_V7));
   state.jobs.forEach(normalizeJob);
   state.deleted = {};
   state.meta.seedVersion = SEED_VERSION;

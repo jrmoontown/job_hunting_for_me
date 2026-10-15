@@ -6,7 +6,7 @@
  * realDeadline : 기업이 공지한 실제 마감일 (알고 있을 때만)
  */
 
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 
 /** 교재/과정 카드 색 — 공부 탭과 캘린더에서 같은 색으로 보인다 */
 export const STUDY_COLORS = {
@@ -245,9 +245,6 @@ export const SEED_TODOS_V6 = [
 
 /** v6: 공부 못 하는 날 — 개인 일정으로 등록 (작성 불가로 두었고, 앱에서 바꿀 수 있음) */
 export const SEED_EVENTS_V6 = [
-  { id: 'seed-evt-101', title: '공부 못 하는 날', start: '2026-10-16', end: '2026-10-18', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
-  { id: 'seed-evt-102', title: '공부 못 하는 날', start: '2026-10-24', end: '2026-10-24', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
-  { id: 'seed-evt-103', title: '공부 못 하는 날', start: '2026-10-28', end: '2026-10-30', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
   { id: 'seed-evt-104', title: 'AICE 시험', start: '2026-10-31', end: '2026-10-31', kind: 'work', avail: 'none', memo: '14문항 · 90분 · 80점 합격', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
 ];
 
@@ -263,4 +260,26 @@ export const SEED_EVENTS = [
   event('여자친구 500일', '2026-09-13', '2026-09-13', 'anniv', 'hard'),
   event('가족 속초 여행', '2026-09-24', '2026-09-26', 'trip', 'none'),
   event('제주도 여행', '2026-09-29', '2026-10-01', 'trip', 'none'),
+];
+
+/** v7: 공부 못 하는 날 표시는 없앴다 (이전 기기에서는 마이그레이션이 지운다) */
+export const REMOVED_EVENTS_V7 = ['seed-evt-101', 'seed-evt-102', 'seed-evt-103'];
+
+/** v7: 개인 일정 */
+export const SEED_EVENTS_V7 = [
+  { id: 'seed-evt-201', title: '밀알축제', start: '2026-10-18', end: '2026-10-18', kind: 'other', avail: 'hard', memo: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' },
+  { id: 'seed-evt-202', title: '데이트', start: '2026-10-24', end: '2026-10-24', kind: 'meet', avail: 'hard', memo: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' },
+  { id: 'seed-evt-203', title: '데이트', start: '2026-10-28', end: '2026-10-28', kind: 'meet', avail: 'hard', memo: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' },
+  { id: 'seed-evt-204', title: '회사 회식', start: '2026-10-29', end: '2026-10-29', kind: 'work', avail: 'hard', memo: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' },
+  { id: 'seed-evt-205', title: '데이트', start: '2026-10-30', end: '2026-10-30', kind: 'meet', avail: 'hard', memo: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' },
+];
+
+/** v7: 할 일 */
+const t7 = (id, text, dueDate) => ({ id, text, done: false, dueDate, jobId: '', url: '', createdAt: '2026-10-15T09:00:00.000Z', updatedAt: '2026-10-15T09:00:00.000Z' });
+export const SEED_TODOS_V7 = [
+  t7('seed-todo-201', '청년미래적금 신청', '2026-10-15'),
+  t7('seed-todo-202', '증명사진 찍기', '2026-10-15'),
+  t7('seed-todo-203', '아이클라우드 정리 → 외장 SSD로 옮기기', '2026-10-16'),
+  t7('seed-todo-204', '주민등록증 · 운전면허증 재발급 신청', '2026-10-19'),
+  t7('seed-todo-205', '옷걸이 20개 추가 구매', ''),
 ];
