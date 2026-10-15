@@ -4,7 +4,7 @@
  * - Gist 동기화(sync.js)가 pull/merge/push 할 때 이 모듈의 직렬화를 사용
  * - 모든 변경은 updatedAt 갱신 → 기기 간 병합 시 최신 수정이 이긴다
  */
-import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_TODOS_V6, SEED_EVENTS, SEED_EVENTS_V6, SEED_EVENTS_V7, SEED_TODOS_V7, REMOVED_EVENTS_V7, SEED_STUDIES, SEED_SESSIONS, SEED_VERSION } from './seed.js';
+import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_TODOS_V6, SEED_EVENTS, SEED_EVENTS_V6, SEED_EVENTS_V7, SEED_TODOS_V7, REMOVED_EVENTS_V7, TODO_DATES_V8, SEED_STUDIES, SEED_SESSIONS, SEED_VERSION } from './seed.js';
 
 const LS_KEY = 'jobhunt.data.v1';
 const LS_SETTINGS = 'jobhunt.settings.v1';
@@ -142,6 +142,21 @@ function migrate() {
     state.events = state.events.filter((e) => !REMOVED_EVENTS_V7.includes(e.id));
     addMissing(state.events, SEED_EVENTS_V7);
     addMissing(state.todos, SEED_TODOS_V7);
+  }
+  if (ver < 8) {                                              // v8: 날짜 하루 밀기 + AICE 일정 10/19부터 다시
+    const SEEDED_AT = '2026-10-15T09:00:00.000Z';
+    state.todos.forEach((t) => {
+      if (TODO_DATES_V8[t.id] && t.updatedAt === SEEDED_AT && !t.done) { t.dueDate = TODO_DATES_V8[t.id]; t.updatedAt = now(); }
+    });
+    // 이전 계획(seed-aice-s*) 중 안 한 것은 지우고, 이미 끝낸 파트는 새 계획에서 뺀다
+    const old = state.sessions.filter((x) => x.id.startsWith('seed-aice-s'));
+    if (old.length) {
+      const doneUnits = new Set(old.filter((x) => x.done).flatMap((x) => x.unitIds));
+      old.filter((x) => !x.done).forEach((x) => { state.deleted[x.id] = now(); });
+      state.sessions = state.sessions.filter((x) => !(x.id.startsWith('seed-aice-s') && !x.done));
+      const fresh = SEED_SESSIONS.map((x) => ({ ...structuredClone(x), unitIds: x.unitIds.filter((u) => !doneUnits.has(u)) })).filter((x) => x.unitIds.length);
+      addMissing(state.sessions, fresh);
+    }
   }
   state.meta.seedVersion = SEED_VERSION;
   persist();
