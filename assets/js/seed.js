@@ -6,7 +6,7 @@
  * realDeadline : 기업이 공지한 실제 마감일 (알고 있을 때만)
  */
 
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 /** 교재/과정 카드 색 — 공부 탭과 캘린더에서 같은 색으로 보인다 */
 export const STUDY_COLORS = {
@@ -172,14 +172,83 @@ const event = (title, start, end, kind, avail, extra = {}) => ({
   ...extra,
 });
 
-/** 자격증 공부 — 교재/과정. 파트는 사용자가 등록한다 */
+/**
+ * AICE 공부 — 시나공 수험서 목차를 17개 묶음으로 나누고, 공식 사이트(aice.study) 학습 4개를 더했다.
+ * 공식 사이트 항목은 기사로 확인된 내용만 담았다: 샘플 문항 제공, 클라우드 주피터 랩 실습 환경,
+ * Associate 14문항·90분·80점 이상 합격, 시험 중 지정 참고 사이트만 열람 가능(2025년 기준).
+ */
+const AICE_UNITS = [
+  ['u01', '1. Ch01 환경 구성 + Ch02 데이터 획득 (넘파이·판다스·불러오기·저장)'],
+  ['o01', '공식① 시험 안내 확인 + 샘플 문항 훑어보기 (aice.study)'],
+  ['u02', '2. Ch03 데이터 구조 확인 + Ch04 §1 필요 데이터 선택하기'],
+  ['o02', '공식② 공식 실습 환경(주피터 랩) 접속해서 코드 돌려보기'],
+  ['u03', '3. Ch04 §2~4 데이터 변경·변형(그룹화·피벗)·병합(concat·merge)'],
+  ['u04', '4. Ch05 데이터 이해하기 (지표 탐색 + matplotlib·seaborn 시각화)'],
+  ['u05', '5. Ch06 §1 수치형 정제 (결측치·이상치·구간화)'],
+  ['u06', '6. Ch06 §2~4 범주형 인코딩·스케일링·변수 선택'],
+  ['u07', '7. Ch07 AI 모델링 필수 개념 (학습 방법·프로세스·데이터 분할·평가)'],
+  ['u08', '8. Ch08 §1 머신러닝 ① 사이킷런·선형회귀·로지스틱·의사결정나무'],
+  ['u09', '9. Ch08 §1 머신러닝 ② 앙상블·랜덤 포레스트·그래디언트 부스팅'],
+  ['u10', '10. Ch08 §2 딥러닝 (인공신경망·심층신경망·고객 만족 분류 실습)'],
+  ['u11', '11. Ch09 비지도학습 (PCA·t-SNE·K-평균·DBSCAN·고객 세분화 실습)'],
+  ['u12', '12. Ch10 성능 향상 (그리드·랜덤 서치 + 항공권 가격·고객만족 실습)'],
+  ['u13', '13. Part2 실습 §1~3 환경·전처리·EDA (렌탈 고객 해지 예측)'],
+  ['u14', '14. Part2 실습 §4~5 모델링 전처리·모델 생성·평가'],
+  ['u15', '15. Part3 실전 연습문제 1회 [회귀]'],
+  ['u16', '16. Part3 실전 연습문제 2회 [분류]'],
+  ['o03', '공식③ 공식 샘플 문항 90분 재고 실전처럼 풀기 (14문항·80점 합격선)'],
+  ['u17', '17. 총정리 — 각 장 확인 문제·개념정리 다시 보기, 틀린 문제 복습'],
+  ['o04', '공식④ 시험 중 볼 수 있는 참고 사이트(공식 문서)에서 함수 찾는 연습'],
+];
+const aiceId = (k) => `seed-aice-${k}`;
+
+/** 자격증 공부 — 교재/과정 */
 export const SEED_STUDIES = [
   {
     id: 'seed-study-001',
-    title: 'AICE 문제집', exam: 'AICE', examDate: '', color: 'green', memo: '',
-    units: [],
+    title: 'AICE 시나공 수험서', exam: 'AICE Associate', examDate: '2026-10-31', color: 'green',
+    memo: '수험서 Part1~3 + 공식 사이트 https://aice.study (샘플 문항·실습 환경). 시험 14문항·90분·80점 합격',
+    units: AICE_UNITS.map(([k, name]) => ({ id: aiceId(k), name, done: false, doneAt: '' })),
     createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z',
   },
+];
+
+/**
+ * AICE 공부 일정 — 시험 10/31(토). 퇴근 후 2시간 기준, 공부 가능한 날은 9일뿐이라 우선순위대로 배치.
+ * 10/16·17·18·24·28·29·30은 공부 못 하는 날. 10/25(일)은 주말이라 조금 길게 잡았다.
+ * Ch09 비지도학습(u11)은 시간이 모자라 일정에서 뺐다 — 여유가 생기면 공부 탭에서 추가.
+ */
+const AICE_PLAN = [
+  ['2026-10-15', ['u01', 'u02', 'o01']],
+  ['2026-10-19', ['u03', 'o02']],
+  ['2026-10-20', ['u04', 'u05']],
+  ['2026-10-21', ['u06', 'u07']],
+  ['2026-10-22', ['u08', 'u09']],
+  ['2026-10-23', ['u10', 'u12']],
+  ['2026-10-25', ['u13', 'u14', 'o03']],
+  ['2026-10-26', ['u15', 'o04']],
+  ['2026-10-27', ['u16', 'u17']],
+];
+export const SEED_SESSIONS = AICE_PLAN.map(([date, keys], i) => ({
+  id: `seed-aice-s${String(i + 1).padStart(2, '0')}`,
+  studyId: 'seed-study-001', date, unitIds: keys.map(aiceId), title: '',
+  memo: keys.some((k) => k.startsWith('o')) ? 'aice.study' : '',
+  done: false, doneAt: '',
+  createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z',
+}));
+
+/** v6에서 추가되는 할 일 */
+export const SEED_TODOS_V6 = [
+  { id: 'seed-todo-102', text: 'AICE 시험(10/31) 접수 상태·응시 방식·준비물 확인하기', done: false, dueDate: '2026-10-23', jobId: '', url: 'https://aice.study',
+    createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
+];
+
+/** v6: 공부 못 하는 날 — 개인 일정으로 등록 (작성 불가로 두었고, 앱에서 바꿀 수 있음) */
+export const SEED_EVENTS_V6 = [
+  { id: 'seed-evt-101', title: '공부 못 하는 날', start: '2026-10-16', end: '2026-10-18', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
+  { id: 'seed-evt-102', title: '공부 못 하는 날', start: '2026-10-24', end: '2026-10-24', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
+  { id: 'seed-evt-103', title: '공부 못 하는 날', start: '2026-10-28', end: '2026-10-30', kind: 'other', avail: 'none', memo: '', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
+  { id: 'seed-evt-104', title: 'AICE 시험', start: '2026-10-31', end: '2026-10-31', kind: 'work', avail: 'none', memo: '14문항 · 90분 · 80점 합격', createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
 ];
 
 /** v5에서 추가되는 할 일 */

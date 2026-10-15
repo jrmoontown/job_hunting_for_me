@@ -4,7 +4,7 @@
  * - Gist 동기화(sync.js)가 pull/merge/push 할 때 이 모듈의 직렬화를 사용
  * - 모든 변경은 updatedAt 갱신 → 기기 간 병합 시 최신 수정이 이긴다
  */
-import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_EVENTS, SEED_STUDIES, SEED_VERSION } from './seed.js';
+import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_TODOS_V6, SEED_EVENTS, SEED_EVENTS_V6, SEED_STUDIES, SEED_SESSIONS, SEED_VERSION } from './seed.js';
 
 const LS_KEY = 'jobhunt.data.v1';
 const LS_SETTINGS = 'jobhunt.settings.v1';
@@ -87,8 +87,9 @@ export function load() {
     state.todos = structuredClone(SEED_TODOS);
     state.events = structuredClone(SEED_EVENTS);
     state.studies = structuredClone(SEED_STUDIES);
-    state.todos.push(...structuredClone(SEED_TODOS_V5));
-    state.sessions = [];
+    state.todos.push(...structuredClone(SEED_TODOS_V5), ...structuredClone(SEED_TODOS_V6));
+    state.sessions = structuredClone(SEED_SESSIONS);
+    state.events.push(...structuredClone(SEED_EVENTS_V6));
     state.deleted = {};
     state.meta = { updatedAt: now(), seedVersion: SEED_VERSION };
     state.jobs.forEach(normalizeJob);
@@ -122,6 +123,18 @@ function migrate() {
   if (ver < 5) {                                              // v5: 자격증 공부 도입
     addMissing(state.studies, SEED_STUDIES);
     addMissing(state.todos, SEED_TODOS_V5);
+  }
+  if (ver < 6) {                                              // v6: AICE 목차 묶음 + 일정 + 공부 못 하는 날
+    const seed = SEED_STUDIES[0];
+    const st = state.studies.find((s) => s.id === seed.id);
+    const hasOwnSessions = state.sessions.some((s) => s.studyId === seed.id);
+    if (st && !st.units.length && !hasOwnSessions) {
+      // 사용자가 아직 파트를 안 만들었으면 목차 묶음과 일정을 채워 넣는다
+      Object.assign(st, { title: seed.title, exam: seed.exam, examDate: st.examDate || seed.examDate, memo: st.memo || seed.memo, units: structuredClone(seed.units), updatedAt: now() });
+      addMissing(state.sessions, SEED_SESSIONS);
+    }
+    addMissing(state.events, SEED_EVENTS_V6);
+    addMissing(state.todos, SEED_TODOS_V6);
   }
   state.meta.seedVersion = SEED_VERSION;
   persist();
@@ -445,10 +458,11 @@ export function replaceAll(snapshot) {
 
 export function resetAll() {
   state.jobs = structuredClone(SEED_JOBS);
-  state.todos = [...structuredClone(SEED_TODOS), ...structuredClone(SEED_TODOS_V5)];
+  state.todos = [...structuredClone(SEED_TODOS), ...structuredClone(SEED_TODOS_V5), ...structuredClone(SEED_TODOS_V6)];
   state.events = structuredClone(SEED_EVENTS);
   state.studies = structuredClone(SEED_STUDIES);
-  state.sessions = [];
+  state.sessions = structuredClone(SEED_SESSIONS);
+  state.events.push(...structuredClone(SEED_EVENTS_V6));
   state.jobs.forEach(normalizeJob);
   state.deleted = {};
   state.meta.seedVersion = SEED_VERSION;

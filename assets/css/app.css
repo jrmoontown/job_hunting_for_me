@@ -1310,7 +1310,10 @@ button.settings-row:hover { background: var(--surface-hover); }
 .study-card__btns { display: flex; gap: 6px; margin-left: auto; }
 
 /* ---- 공부 일정 아이템 ---- */
-.sess-item__study { font-weight: 700; margin-right: 2px; }
+.sess-item__study { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
+.sess-item__units { display: flex; flex-direction: column; gap: 4px; }
+.sess-item__units li { padding-left: 12px; position: relative; font-size: 14.5px; }
+.sess-item__units li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 4px; height: 4px; border-radius: 50%; background: var(--text-disabled); }
 .cal-dot--study { background: var(--success); }
 .cal-dot--study-done { background: transparent; border: 1.5px solid var(--success); box-sizing: border-box; }
 

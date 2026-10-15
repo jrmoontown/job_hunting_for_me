@@ -55,7 +55,13 @@ export function sessionItemHTML(s, { showDate = false } = {}) {
   <div class="todo-item sess-item ${s.done ? 'todo-item--done' : ''}" data-session="${s.id}">
     <button class="checkbox" role="checkbox" aria-checked="${s.done}" data-act="toggle" aria-label="완료 표시" style="${s.done ? `background:${c.main};border-color:${c.main}` : ''}">${icons.checkSmall}</button>
     <button class="todo-item__body" data-act="edit" aria-label="공부 일정 수정">
-      <p class="todo-item__text"><span class="sess-item__study" style="color:${c.main}">${esc(study?.title || '교재')}</span> ${esc(sessionLabel(s, study))}</p>
+      <p class="sess-item__study" style="color:${c.main}">${esc(study?.title || '교재')}</p>
+      ${(() => {
+        const names = s.title ? [s.title] : (study?.units || []).filter((u) => s.unitIds.includes(u.id)).map((u) => u.name);
+        return names.length > 1
+          ? `<ul class="sess-item__units">${names.map((n) => `<li class="todo-item__text">${esc(n)}</li>`).join('')}</ul>`
+          : `<p class="todo-item__text">${esc(names[0] || '공부')}</p>`;
+      })()}
       <div class="todo-item__meta">
         ${showDate ? `<span class="todo-item__meta-text ${overdue ? 'todo-item__meta-text--overdue' : ''}">${fmtDate(s.date)}${overdue ? ' · 못 함' : ''}</span>` : overdue ? '<span class="todo-item__meta-text todo-item__meta-text--overdue">못 함</span>' : ''}
         ${s.memo ? `<span class="todo-item__meta-text">${esc(s.memo)}</span>` : ''}
