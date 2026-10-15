@@ -59,6 +59,10 @@ export const icons = {
   heart: I('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/>'),
   flag: I('<path d="M5.5 21V4h11.5l-1.6 4 1.6 4.5H5.5"/>'),
   pipeline: I('<path d="M4 6.5h16M4 12h9M4 17.5h6"/><path d="m14.5 16.5 2 2 4-4.5"/>'),
+  home: I('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19v-8.5Z"/><path d="M9.5 20.5v-6h5v6"/>'),
+  book: I('<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19.5v15H6.5a2 2 0 0 0-2 2v-15Z"/><path d="M4.5 18.5a2 2 0 0 1 2-2H19.5"/><path d="M9 8h6M9 11.5h4"/>'),
+  target: I('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
+  wand: I('<path d="m5 19 9.5-9.5M15.5 3.5v2M19.5 7.5h2M18.5 4.5l1.4-1.4M15 10.5l1.4 1.4"/><path d="m12.5 8.5 3 3"/>'),
   more: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
 };
 

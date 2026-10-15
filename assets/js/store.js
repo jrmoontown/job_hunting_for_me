@@ -4,7 +4,7 @@
  * - Gist 동기화(sync.js)가 pull/merge/push 할 때 이 모듈의 직렬화를 사용
  * - 모든 변경은 updatedAt 갱신 → 기기 간 병합 시 최신 수정이 이긴다
  */
-import { SEED_JOBS, SEED_TODOS, SEED_EVENTS, SEED_VERSION } from './seed.js';
+import { SEED_JOBS, SEED_TODOS, SEED_TODOS_V5, SEED_EVENTS, SEED_STUDIES, SEED_VERSION } from './seed.js';
 
 const LS_KEY = 'jobhunt.data.v1';
 const LS_SETTINGS = 'jobhunt.settings.v1';
@@ -20,6 +20,10 @@ const state = {
   todos: [],
   /** 개인 일정 — 지원서를 쓰기 어려운 날 (여행, 약속, 기념일 …) */
   events: [],
+  /** 자격증 공부 — 교재/과정 (파트 목록 포함) */
+  studies: [],
+  /** 공부 일정 — 어느 날 어느 파트를 풀지 */
+  sessions: [],
   /** 삭제 이력(tombstone) — 다른 기기에서 병합할 때 부활을 막는다 */
   deleted: {}, // { [id]: deletedAtISO }
   meta: { updatedAt: '', seedVersion: 0 },
@@ -48,7 +52,8 @@ function persist() {
   state.meta.updatedAt = now();
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      jobs: state.jobs, todos: state.todos, events: state.events, deleted: state.deleted, meta: state.meta,
+      jobs: state.jobs, todos: state.todos, events: state.events,
+      studies: state.studies, sessions: state.sessions, deleted: state.deleted, meta: state.meta,
     }));
   } catch { /* 시크릿 모드 등에서 저장 실패해도 앱은 동작해야 한다 */ }
 }
@@ -70,6 +75,8 @@ export function load() {
     state.jobs = raw.jobs;
     state.todos = Array.isArray(raw.todos) ? raw.todos : [];
     state.events = Array.isArray(raw.events) ? raw.events : [];
+    state.studies = Array.isArray(raw.studies) ? raw.studies : [];
+    state.sessions = Array.isArray(raw.sessions) ? raw.sessions : [];
     state.deleted = raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {};
     state.meta = raw.meta || { updatedAt: now(), seedVersion: 0 };
     state.jobs.forEach(normalizeJob);
@@ -79,6 +86,9 @@ export function load() {
     state.jobs = structuredClone(SEED_JOBS);
     state.todos = structuredClone(SEED_TODOS);
     state.events = structuredClone(SEED_EVENTS);
+    state.studies = structuredClone(SEED_STUDIES);
+    state.todos.push(...structuredClone(SEED_TODOS_V5));
+    state.sessions = [];
     state.deleted = {};
     state.meta = { updatedAt: now(), seedVersion: SEED_VERSION };
     state.jobs.forEach(normalizeJob);
@@ -104,12 +114,14 @@ function normalizeJob(j) {
 function migrate() {
   const ver = state.meta.seedVersion || 0;
   if (ver >= SEED_VERSION) return;
-  if (ver < 4) {
-    // v4: 개인 일정 도입 — 사용자가 알려준 일정을 기본으로 채움 (지운 적 있으면 건너뜀)
-    const have = new Set(state.events.map((e) => e.id));
-    SEED_EVENTS.forEach((e) => {
-      if (!have.has(e.id) && !state.deleted[e.id]) state.events.push(structuredClone(e));
-    });
+  const addMissing = (list, seeds) => {
+    const have = new Set(list.map((x) => x.id));
+    seeds.forEach((x) => { if (!have.has(x.id) && !state.deleted[x.id]) list.push(structuredClone(x)); });
+  };
+  if (ver < 4) addMissing(state.events, SEED_EVENTS);        // v4: 개인 일정 도입
+  if (ver < 5) {                                              // v5: 자격증 공부 도입
+    addMissing(state.studies, SEED_STUDIES);
+    addMissing(state.todos, SEED_TODOS_V5);
   }
   state.meta.seedVersion = SEED_VERSION;
   persist();
@@ -124,6 +136,10 @@ export const getEvents = () => state.events;
 export const getJob = (id) => state.jobs.find((j) => j.id === id);
 export const getTodo = (id) => state.todos.find((t) => t.id === id);
 export const getEvent = (id) => state.events.find((e) => e.id === id);
+export const getStudies = () => state.studies;
+export const getStudy = (id) => state.studies.find((s) => s.id === id);
+export const getSessions = () => state.sessions;
+export const getSession = (id) => state.sessions.find((s) => s.id === id);
 export const getSettings = () => settings;
 
 /* ------------------------------------------------------------------ */
@@ -262,16 +278,120 @@ export function deleteEvent(id) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 자격증 공부 CRUD                                                     */
+/* ------------------------------------------------------------------ */
+export function addStudy(data) {
+  const item = {
+    id: uid(), title: '', exam: '', examDate: '', color: 'green', memo: '', units: [],
+    ...data,
+    createdAt: now(), updatedAt: now(),
+  };
+  item.units = (item.units || []).map((u) => ({ id: u.id || uid(), name: u.name, done: Boolean(u.done), doneAt: u.doneAt || '' }));
+  state.studies.push(item);
+  persist(); emit('studies');
+  return item;
+}
+
+export function updateStudy(id, patch) {
+  const item = getStudy(id);
+  if (!item) return null;
+  Object.assign(item, patch, { updatedAt: now() });
+  if (patch.units) item.units = patch.units.map((u) => ({ id: u.id || uid(), name: u.name, done: Boolean(u.done), doneAt: u.doneAt || '' }));
+  persist(); emit('studies');
+  return item;
+}
+
+export function deleteStudy(id) {
+  const i = state.studies.findIndex((s) => s.id === id);
+  if (i < 0) return;
+  state.studies.splice(i, 1);
+  state.deleted[id] = now();
+  // 딸린 공부 일정도 함께 지운다
+  state.sessions.filter((s) => s.studyId === id).forEach((s) => { state.deleted[s.id] = now(); });
+  state.sessions = state.sessions.filter((s) => s.studyId !== id);
+  persist(); emit('studies');
+}
+
+/** 파트 완료 상태를 직접 토글 (일정 없이 푼 경우) */
+export function toggleUnit(studyId, unitId) {
+  const st = getStudy(studyId);
+  const u = st?.units.find((x) => x.id === unitId);
+  if (!u) return null;
+  u.done = !u.done;
+  u.doneAt = u.done ? todayStr() : '';
+  st.updatedAt = now();
+  persist(); emit('studies');
+  return u;
+}
+
+export function addSessions(list) {
+  const made = list.map((data) => ({
+    id: uid(), studyId: '', date: '', unitIds: [], title: '', memo: '', done: false, doneAt: '',
+    ...data,
+    createdAt: now(), updatedAt: now(),
+  }));
+  state.sessions.push(...made);
+  persist(); emit('sessions');
+  return made;
+}
+export const addSession = (data) => addSessions([data])[0];
+
+export function updateSession(id, patch) {
+  const item = getSession(id);
+  if (!item) return null;
+  Object.assign(item, patch, { updatedAt: now() });
+  persist(); emit('sessions');
+  return item;
+}
+
+/** 공부 일정 완료 토글 — 그 일정의 파트들도 함께 완료/해제 */
+export function toggleSession(id) {
+  const s = getSession(id);
+  if (!s) return null;
+  s.done = !s.done;
+  s.doneAt = s.done ? todayStr() : '';
+  s.updatedAt = now();
+  const st = getStudy(s.studyId);
+  if (st) {
+    st.units.forEach((u) => {
+      if (s.unitIds.includes(u.id)) { u.done = s.done; u.doneAt = s.done ? s.doneAt : ''; }
+    });
+    st.updatedAt = now();
+  }
+  persist(); emit('sessions');
+  return s;
+}
+
+export function deleteSession(id) {
+  const i = state.sessions.findIndex((s) => s.id === id);
+  if (i < 0) return;
+  state.sessions.splice(i, 1);
+  state.deleted[id] = now();
+  persist(); emit('sessions');
+}
+
+/** 한 교재의 아직 안 한 미래 일정을 모두 지운다 (일정 다시 짤 때) */
+export function clearPendingSessions(studyId, fromDate) {
+  const gone = state.sessions.filter((s) => s.studyId === studyId && !s.done && s.date >= fromDate);
+  gone.forEach((s) => { state.deleted[s.id] = now(); });
+  state.sessions = state.sessions.filter((s) => !gone.includes(s));
+  if (gone.length) { persist(); emit('sessions'); }
+  return gone.length;
+}
+
+/* ------------------------------------------------------------------ */
 /* 내보내기 / 가져오기 / 병합                                            */
 /* ------------------------------------------------------------------ */
 export function serialize() {
   return {
     app: 'jobhunt-dashboard',
-    version: 2,
+    version: 3,
     exportedAt: now(),
     jobs: state.jobs,
     todos: state.todos,
     events: state.events,
+    studies: state.studies,
+    sessions: state.sessions,
     deleted: state.deleted,
     meta: state.meta,
   };
@@ -305,6 +425,8 @@ export function mergeSnapshot(remote) {
   state.jobs = mergeList(state.jobs, remote.jobs);
   state.todos = mergeList(state.todos, remote.todos);
   state.events = mergeList(state.events, remote.events);
+  state.studies = mergeList(state.studies, remote.studies);
+  state.sessions = mergeList(state.sessions, remote.sessions);
   persist(); emit('all');
 }
 
@@ -314,14 +436,20 @@ export function replaceAll(snapshot) {
   state.jobs = snapshot.jobs;
   state.todos = Array.isArray(snapshot.todos) ? snapshot.todos : [];
   state.events = Array.isArray(snapshot.events) ? snapshot.events : [];
+  state.studies = Array.isArray(snapshot.studies) ? snapshot.studies : [];
+  state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
   state.deleted = snapshot.deleted && typeof snapshot.deleted === 'object' ? snapshot.deleted : {};
+  state.jobs.forEach(normalizeJob);
   persist(); emit('all');
 }
 
 export function resetAll() {
   state.jobs = structuredClone(SEED_JOBS);
-  state.todos = structuredClone(SEED_TODOS);
+  state.todos = [...structuredClone(SEED_TODOS), ...structuredClone(SEED_TODOS_V5)];
   state.events = structuredClone(SEED_EVENTS);
+  state.studies = structuredClone(SEED_STUDIES);
+  state.sessions = [];
+  state.jobs.forEach(normalizeJob);
   state.deleted = {};
   state.meta.seedVersion = SEED_VERSION;
   persist(); emit('all');

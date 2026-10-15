@@ -2,11 +2,17 @@
  * 현황 요약 마크다운 — Gist에 status.md 로 함께 저장한다.
  * Claude 프로젝트 등 외부에서 링크 하나로 최신 취준 현황을 읽을 수 있게 하는 용도.
  */
-import { getJobs, getTodos, getEvents, todayStr, ddayOf, fmtDate } from './store.js';
+import { getJobs, getTodos, getEvents, getStudies, getSessions, todayStr, ddayOf, fmtDate } from './store.js';
 import { STATUSES, STATUS_ORDER, EVENT_KINDS, AVAIL, isOpenStatus } from './seed.js';
 import { getPlan, conflictGroups, monthSummary, fmtShort } from './plan.js';
 
 const line = (s) => s.replace(/\s+/g, ' ').trim();
+const sessLabel = (s) => {
+  const st = getStudies().find((x) => x.id === s.studyId);
+  if (s.title) return `${st?.title || ''} ${s.title}`.trim();
+  const names = (st?.units || []).filter((u) => s.unitIds.includes(u.id)).map((u) => u.name);
+  return `${st?.title || '교재'} ${names.join(' · ') || ''}`.trim();
+};
 
 export function buildStatusMarkdown() {
   const today = todayStr();
@@ -85,6 +91,30 @@ export function buildStatusMarkdown() {
     const range = end === e.start ? fmtShort(e.start) : `${fmtShort(e.start)} – ${fmtShort(end)}`;
     const av = AVAIL[e.avail]?.label || e.avail;
     out.push(`- ${range} ${e.title} · ${EVENT_KINDS[e.kind] || e.kind} · 작성 ${av}${e.memo ? ` · ${line(e.memo)}` : ''}`);
+  }
+  out.push('');
+
+  out.push('## 자격증 공부');
+  const studies = getStudies();
+  const sessions = getSessions();
+  if (!studies.length) out.push('- 없음');
+  for (const st of studies) {
+    const total = st.units.length; const doneN = st.units.filter((u) => u.done).length;
+    const bits = [];
+    if (st.exam) bits.push(st.exam);
+    if (st.examDate) { const d = ddayOf(st.examDate); bits.push(`시험 ${fmtShort(st.examDate)}${d !== null && d >= 0 ? ` (D-${d})` : ''}`); }
+    bits.push(total ? `${doneN}/${total} 파트 완료` : '파트 미등록');
+    out.push(`- **${st.title}** — ${bits.join(' · ')}`);
+    const left = st.units.filter((u) => !u.done).map((u) => u.name);
+    if (left.length) out.push(`  - 남은 파트: ${left.join(', ')}`);
+  }
+  const upcoming = sessions.filter((s) => !s.done && s.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 14);
+  const missed = sessions.filter((s) => !s.done && s.date < today);
+  if (missed.length) out.push(`- 못 한 공부 ${missed.length}건: ${missed.map((s) => `${fmtShort(s.date)} ${sessLabel(s)}`).join(', ')}`);
+  if (upcoming.length) {
+    out.push('');
+    out.push('### 앞으로의 공부 일정');
+    upcoming.forEach((s) => out.push(`- ${fmtShort(s.date)}${s.date === today ? ' (오늘)' : ''} — ${sessLabel(s)}`));
   }
   out.push('');
 

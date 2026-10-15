@@ -6,30 +6,37 @@ import { isOpenStatus } from './seed.js';
 import { icons } from './ui.js';
 import { syncNow, onSyncState, isConfigured, getSyncState } from './sync.js';
 import { renderCalendar } from './views/calendar.js';
-import { renderJobs } from './views/jobs.js';
+import { renderHome } from './views/home.js';
+import { renderJobhunt, JOBHUNT_SUBS, lastJobhuntSub } from './views/jobhunt.js';
+import { renderStudy, studyStats } from './views/study.js';
 import { renderTodos } from './views/todos.js';
-import { renderDashboard } from './views/dashboard.js';
 import { renderSettings } from './views/settings.js';
-import { renderPipeline, pipelineStats, overdueResultCount } from './views/pipeline.js';
+import { pipelineStats, overdueResultCount } from './views/pipeline.js';
 import { openJobForm } from './views/jobShared.js';
 import { openTodoForm } from './views/todos.js';
 import { openAddChooser } from './views/events.js';
+import { openSessionForm } from './views/study.js';
 import { getPlan } from './plan.js';
 
+/**
+ * 화면 구성 — 홈 · 취준(공고/전형/현황) · 공부 · 투두 · 캘린더, 설정은 상단 톱니.
+ * 예전 주소(#/jobs, #/pipeline, #/dashboard)는 취준 탭의 하위 화면으로 그대로 열린다.
+ */
 const ROUTES = {
-  calendar: { title: '캘린더', icon: 'calendar', render: renderCalendar, caption: () => monthCaption() },
-  jobs: { title: '공고', icon: 'briefcase', render: renderJobs, caption: () => jobsCaption() },
-  pipeline: { title: '전형', icon: 'pipeline', render: renderPipeline, caption: () => pipelineCaption() },
+  home: { title: '홈', icon: 'home', render: (el2) => renderHome(el2, { goTo }), caption: () => homeCaption() },
+  jobhunt: { title: '취준', icon: 'briefcase', render: (el2) => renderJobhunt(el2, { sub, goTo }), caption: () => jobhuntCaption() },
+  study: { title: '공부', icon: 'book', render: renderStudy, caption: () => studyCaption() },
   todos: { title: '투두', icon: 'check', render: renderTodos, caption: () => todosCaption() },
-  dashboard: { title: '현황', icon: 'chart', render: (el2) => renderDashboard(el2, { goTo }), caption: () => '' },
+  calendar: { title: '캘린더', icon: 'calendar', render: renderCalendar, caption: () => monthCaption() },
   settings: { title: '설정', icon: 'gear', render: (el2) => renderSettings(el2, { applyTheme }), caption: () => '' },
 };
-/** 모바일 하단 탭은 다섯 개까지 — 설정은 상단 톱니 아이콘으로 */
-const TAB_ORDER = ['calendar', 'jobs', 'pipeline', 'todos', 'dashboard'];
-const SIDE_ORDER = ['calendar', 'jobs', 'pipeline', 'todos', 'dashboard', 'settings'];
+/** 모바일 하단 탭 — 세 영역(취준·공부·투두)이 같은 비중, 양옆에 홈과 캘린더 */
+const TAB_ORDER = ['home', 'jobhunt', 'study', 'todos', 'calendar'];
+const SIDE_ORDER = ['home', 'jobhunt', 'study', 'todos', 'calendar', 'settings'];
 
 const view = document.getElementById('view');
 let current = '';
+let sub = 'jobs'; // 취준 탭의 하위 화면
 
 /* ------------------------------------------------------------------ */
 /* 캡션                                                                */
@@ -44,15 +51,28 @@ function monthCaption() {
   const head = week.length ? `이번 주 마감 ${week.length}건` : `지원 예정 ${open.length}건`;
   return conflicts ? `${head} · 조정 필요 ${conflicts}건` : head;
 }
-function jobsCaption() {
+function homeCaption() {
+  const open = getJobs().filter((j) => isOpenStatus(j.status)).length;
+  const st = studyStats();
+  const td = getTodos().filter((t) => !t.done).length;
+  return `공고 ${open} · 공부 ${st.todays.length ? `오늘 ${st.todays.length}` : st.studies.length} · 할 일 ${td}`;
+}
+function jobhuntCaption() {
   const jobs = getJobs();
   const open = jobs.filter((j) => isOpenStatus(j.status)).length;
+  if (sub === 'pipeline') {
+    const s = pipelineStats();
+    if (!s.jobs.length) return '지원 완료한 공고가 여기 모여요';
+    return s.waiting.length ? `결과 대기 ${s.waiting.length}건 · 가장 오래 ${s.maxWait}일` : `진행 중 ${s.progress.length}건 · 마무리 ${s.done.length}건`;
+  }
+  if (sub === 'dashboard') return monthCaption();
   return `예정 ${open}건 · 완료 ${jobs.length - open}건`;
 }
-function pipelineCaption() {
-  const s = pipelineStats();
-  if (!s.jobs.length) return '지원 완료한 공고가 여기 모여요';
-  return s.waiting.length ? `결과 대기 ${s.waiting.length}건 · 가장 오래 ${s.maxWait}일` : `진행 중 ${s.progress.length}건 · 마무리 ${s.done.length}건`;
+function studyCaption() {
+  const s = studyStats();
+  if (!s.studies.length) return '교재를 추가해 시작해 보세요';
+  if (s.todays.length) return `오늘 ${s.todays.filter((x) => x.done).length}/${s.todays.length} 완료${s.missed.length ? ` · 못 함 ${s.missed.length}` : ''}`;
+  return s.next ? `다음 공부 ${s.next.date.slice(5).replace('-', '/')}` : `교재 ${s.studies.length}개`;
 }
 function todosCaption() {
   const open = getTodos().filter((t) => !t.done).length;
@@ -72,7 +92,7 @@ function urgentCount() {
 /* 네비게이션                                                            */
 /* ------------------------------------------------------------------ */
 function buildNav() {
-  const badges = { jobs: urgentCount(), pipeline: overdueResultCount() };
+  const badges = { jobhunt: urgentCount() + overdueResultCount(), study: studyStats().missed.length };
   const item = (cls, badgeCls) => (key) => `
     <a class="${cls}" href="#/${key}" ${current === key ? 'aria-current="page"' : ''}>
       ${icons[ROUTES[key].icon]}
@@ -89,8 +109,11 @@ function buildNav() {
 function goTo(key) { location.hash = `#/${key}`; }
 
 function route() {
-  const key = (location.hash.replace(/^#\/?/, '') || 'calendar').split('?')[0];
-  current = ROUTES[key] ? key : 'calendar';
+  const raw = (location.hash.replace(/^#\/?/, '') || 'home').split('?')[0];
+  let key = raw;
+  if (JOBHUNT_SUBS.includes(raw)) { key = 'jobhunt'; sub = raw; }
+  else if (raw === 'jobhunt') { sub = lastJobhuntSub(); }
+  current = ROUTES[key] ? key : 'home';
   const r = ROUTES[current];
   document.getElementById('topbarTitle').textContent = r.title;
   document.getElementById('topbarCaption').textContent = r.caption();
@@ -151,7 +174,8 @@ function renderSyncUI() {
 /* ------------------------------------------------------------------ */
 document.getElementById('fab').addEventListener('click', () => {
   if (current === 'todos') openTodoForm();
-  else if (current === 'jobs') openJobForm();
+  else if (current === 'jobhunt' && sub === 'jobs') openJobForm();
+  else if (current === 'study') openSessionForm();
   else openAddChooser();
 });
 

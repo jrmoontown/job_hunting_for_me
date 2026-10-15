@@ -6,7 +6,17 @@
  * realDeadline : 기업이 공지한 실제 마감일 (알고 있을 때만)
  */
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
+
+/** 교재/과정 카드 색 — 공부 탭과 캘린더에서 같은 색으로 보인다 */
+export const STUDY_COLORS = {
+  green:  { label: '초록', main: 'var(--success)',    weak: 'var(--success-weak)' },
+  blue:   { label: '파랑', main: 'var(--primary)',    weak: 'var(--primary-weak)' },
+  violet: { label: '보라', main: 'var(--violet-500)', weak: 'var(--violet-50)' },
+  amber:  { label: '주황', main: 'var(--warning)',    weak: 'var(--warning-weak)' },
+  teal:   { label: '청록', main: 'var(--teal-500)',   weak: 'var(--teal-50)' },
+  red:    { label: '빨강', main: 'var(--danger)',     weak: 'var(--danger-weak)' },
+};
 
 /** 개인 일정 종류 */
 export const EVENT_KINDS = { trip: '여행', meet: '약속', anniv: '기념일', work: '회사 일정', other: '기타' };
@@ -161,6 +171,22 @@ const event = (title, start, end, kind, avail, extra = {}) => ({
   updatedAt: '2026-09-02T00:00:00.000Z',
   ...extra,
 });
+
+/** 자격증 공부 — 교재/과정. 파트는 사용자가 등록한다 */
+export const SEED_STUDIES = [
+  {
+    id: 'seed-study-001',
+    title: 'AICE 문제집', exam: 'AICE', examDate: '', color: 'green', memo: '',
+    units: [],
+    createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z',
+  },
+];
+
+/** v5에서 추가되는 할 일 */
+export const SEED_TODOS_V5 = [
+  { id: 'seed-todo-101', text: 'SQLD 문제집 사기', done: false, dueDate: '', jobId: '', url: '',
+    createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' },
+];
 
 /** 개인 일정 — 지원서를 쓰기 어려운 날 */
 export const SEED_EVENTS = [

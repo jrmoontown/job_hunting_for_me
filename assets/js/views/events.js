@@ -8,6 +8,7 @@ import { scheduleSync } from '../sync.js';
 import { fmtShort, addDays, availabilityOf } from '../plan.js';
 import { openJobForm } from './jobShared.js';
 import { openTodoForm } from './todos.js';
+import { openSessionForm } from './study.js';
 
 const KIND_ICON = { trip: 'luggage', meet: 'people', anniv: 'heart', work: 'building', other: 'flag' };
 
@@ -187,6 +188,10 @@ export function openAddChooser({ presetDate = '' } = {}) {
           <span class="chooser__icon" style="background:var(--primary-weak);color:var(--primary)">${icons.briefcase}</span>
           <span><span class="chooser__title">공고</span><span class="chooser__desc">기업 · 직무 · 마감일</span></span>
         </button>
+        <button class="chooser__opt" data-pick="study">
+          <span class="chooser__icon" style="background:var(--success-weak);color:var(--success)">${icons.book}</span>
+          <span><span class="chooser__title">공부 일정</span><span class="chooser__desc">교재 · 파트 · 날짜</span></span>
+        </button>
         <button class="chooser__opt" data-pick="event">
           <span class="chooser__icon" style="background:var(--teal-50);color:var(--teal-700)">${icons.luggage}</span>
           <span><span class="chooser__title">개인 일정</span><span class="chooser__desc">여행 · 약속 · 기념일처럼 지원서를 못 쓰는 날</span></span>
@@ -201,6 +206,7 @@ export function openAddChooser({ presetDate = '' } = {}) {
     const pick = b.dataset.pick;
     closeSheet();
     if (pick === 'job') openJobForm(null, { presetDate });
+    else if (pick === 'study') openSessionForm(null, { presetDate });
     else if (pick === 'event') openEventForm(null, { presetDate });
     else openTodoForm();
   }));
