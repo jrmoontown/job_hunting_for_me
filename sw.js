@@ -1,4 +1,4 @@
-/* 취준 대시보드 — 오프라인 캐시 */
+/* 오늘의 상민 — 오프라인 캐시 */
 const CACHE = 'jobhunt-v5';
 const SHELL = [
   './',

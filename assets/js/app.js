@@ -117,7 +117,7 @@ function route() {
   const r = ROUTES[current];
   document.getElementById('topbarTitle').textContent = r.title;
   document.getElementById('topbarCaption').textContent = r.caption();
-  document.title = `${r.title} · 취준 대시보드`;
+  document.title = `${r.title} · 오늘의 상민`;
   buildNav();
   view.scrollTop = 0;
   window.scrollTo({ top: 0 });

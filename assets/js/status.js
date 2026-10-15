@@ -36,7 +36,7 @@ export function buildStatusMarkdown() {
   const out = [];
   out.push(`# 취준 현황 (${fmtDate(today, { withYear: true })} 기준)`);
   out.push('');
-  out.push('> 취준 대시보드 앱이 자동으로 만든 파일입니다. 앱에서 내용을 바꾸면 잠시 후 이 파일도 갱신됩니다.');
+  out.push('> 오늘의 상민 앱이 자동으로 만든 파일입니다. 앱에서 내용을 바꾸면 잠시 후 이 파일도 갱신됩니다.');
   out.push('> 날짜는 모두 "내 마감일"(보통 실제 마감 하루 전에 스스로 정한 제출 목표일)입니다.');
   out.push('');
 

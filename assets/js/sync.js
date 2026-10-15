@@ -53,7 +53,7 @@ export function repoUrl() {
   const repo = location.pathname.split('/').filter(Boolean)[0];
   return m && repo ? `https://github.com/${m[1]}/${repo}` : '';
 }
-const GIST_DESC = '취준 대시보드 데이터 (자동 동기화)';
+const GIST_DESC = '오늘의 상민 데이터 (자동 동기화)';
 
 const listeners = new Set();
 export const onSyncState = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
