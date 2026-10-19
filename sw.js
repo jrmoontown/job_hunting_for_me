@@ -1,5 +1,5 @@
 /* 오늘의 상민 — 오프라인 캐시 */
-const CACHE = 'jobhunt-v9';
+const CACHE = 'jobhunt-v10';
 const SHELL = [
   './',
   './index.html',

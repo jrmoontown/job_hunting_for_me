@@ -158,6 +158,15 @@ function migrate() {
       addMissing(state.sessions, fresh);
     }
   }
+  if (ver < 9) {                                              // v9: AICE 교재·일정을 챕터 단위로 처음부터 다시
+    const seed = SEED_STUDIES[0];
+    const st = state.studies.find((x) => x.id === seed.id);
+    if (st) Object.assign(st, structuredClone(seed), { updatedAt: now() });
+    else state.studies.push(structuredClone(seed));
+    state.sessions.filter((x) => x.studyId === seed.id).forEach((x) => { state.deleted[x.id] = now(); });
+    state.sessions = state.sessions.filter((x) => x.studyId !== seed.id);
+    state.sessions.push(...SEED_SESSIONS.map((x) => ({ ...structuredClone(x), updatedAt: now() })));
+  }
   state.meta.seedVersion = SEED_VERSION;
   persist();
 }
