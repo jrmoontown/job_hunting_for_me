@@ -157,13 +157,6 @@ export function renderCalendar(root) {
       </button>`;
   }).join('');
 
-  // 이번 달과 겹치는 개인 일정 목록
-  const monthStart = ymd(y, m, 1);
-  const monthEnd = ymd(y, m, new Date(y, m + 1, 0).getDate());
-  const monthEvents = events
-    .filter((e) => e.start <= monthEnd && (e.end || e.start) >= monthStart)
-    .sort((a, b) => a.start.localeCompare(b.start));
-
   root.innerHTML = `
     <div class="cal-layout">
       <section class="section">
@@ -197,17 +190,6 @@ export function renderCalendar(root) {
         </div>
       </section>
       <section class="day-panel" id="dayPanel"></section>
-      ${monthEvents.length && showEvents ? `
-      <section class="section cal-month-events">
-        <div class="section__head">
-          <div>
-            <h3 class="section__title">${m + 1}월 개인 일정</h3>
-            <p class="section__desc">누르면 수정할 수 있어요</p>
-          </div>
-          <button class="section__action" data-add-event>${icons.plus}일정 추가</button>
-        </div>
-        <div class="evt-list" data-event-list>${monthEvents.map(eventCardHTML).join('')}</div>
-      </section>` : ''}
     </div>`;
 
   renderDayPanel(root.querySelector('#dayPanel'), { jobsByDate, todosByDate, interviewsByDate, sessionsByDate, events });
@@ -231,9 +213,6 @@ export function renderCalendar(root) {
     selected = b.dataset.date;
     renderCalendar(root);
   }));
-  root.querySelector('[data-add-event]')?.addEventListener('click', () => openAddChooser({ presetDate: selected }));
-  const evList = root.querySelector('[data-event-list]');
-  if (evList) bindEventCards(evList);
 }
 
 function renderDayPanel(panel, { jobsByDate, todosByDate, interviewsByDate, sessionsByDate, events }) {
