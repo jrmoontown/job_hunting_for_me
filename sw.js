@@ -1,5 +1,5 @@
 /* 오늘의 상민 — 오프라인 캐시 */
-const CACHE = 'jobhunt-v11';
+const CACHE = 'jobhunt-v12';
 const SHELL = [
   './',
   './index.html',
@@ -16,6 +16,9 @@ const SHELL = [
   './assets/js/views/home.js',
   './assets/js/views/jobhunt.js',
   './assets/js/views/study.js',
+  './assets/js/money.js',
+  './assets/js/views/money.js',
+  './assets/js/views/moneyImport.js',
   './assets/js/views/calendar.js',
   './assets/js/views/jobs.js',
   './assets/js/views/todos.js',

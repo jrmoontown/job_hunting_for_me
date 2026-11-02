@@ -24,6 +24,10 @@ const state = {
   studies: [],
   /** 공부 일정 — 어느 날 어느 파트를 풀지 */
   sessions: [],
+  /** 가계부 — 지출 내역 (직접 입력 + 카드 명세서 가져오기) */
+  expenses: [],
+  /** 정기결제 — 구독·통신비·보험 등 매달/매년 빠져나가는 것 */
+  subscriptions: [],
   /** 삭제 이력(tombstone) — 다른 기기에서 병합할 때 부활을 막는다 */
   deleted: {}, // { [id]: deletedAtISO }
   meta: { updatedAt: '', seedVersion: 0 },
@@ -53,7 +57,8 @@ function persist() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
       jobs: state.jobs, todos: state.todos, events: state.events,
-      studies: state.studies, sessions: state.sessions, deleted: state.deleted, meta: state.meta,
+      studies: state.studies, sessions: state.sessions, expenses: state.expenses, subscriptions: state.subscriptions,
+      deleted: state.deleted, meta: state.meta,
     }));
   } catch { /* 시크릿 모드 등에서 저장 실패해도 앱은 동작해야 한다 */ }
 }
@@ -77,6 +82,8 @@ export function load() {
     state.events = Array.isArray(raw.events) ? raw.events : [];
     state.studies = Array.isArray(raw.studies) ? raw.studies : [];
     state.sessions = Array.isArray(raw.sessions) ? raw.sessions : [];
+    state.expenses = Array.isArray(raw.expenses) ? raw.expenses : [];
+    state.subscriptions = Array.isArray(raw.subscriptions) ? raw.subscriptions : [];
     state.deleted = raw.deleted && typeof raw.deleted === 'object' ? raw.deleted : {};
     state.meta = raw.meta || { updatedAt: now(), seedVersion: 0 };
     state.jobs.forEach(normalizeJob);
@@ -424,6 +431,81 @@ export function clearPendingSessions(studyId, fromDate) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 가계부 — 지출 · 정기결제                                               */
+/* ------------------------------------------------------------------ */
+export const getExpenses = () => state.expenses;
+export const getExpense = (id) => state.expenses.find((x) => x.id === id);
+export const getSubscriptions = () => state.subscriptions;
+export const getSubscription = (id) => state.subscriptions.find((x) => x.id === id);
+
+const EXPENSE_DEFAULTS = { date: '', amount: 0, category: 'etc', merchant: '', memo: '', method: '', subscriptionId: '', source: 'manual', importKey: '' };
+
+/** 여러 건을 한 번에 넣는다 (명세서 가져오기). importKey가 같은 건은 건너뛴다 */
+export function addExpenses(list) {
+  const keys = new Set(state.expenses.map((x) => x.importKey).filter(Boolean));
+  const made = [];
+  for (const data of list) {
+    if (data.importKey && keys.has(data.importKey)) continue;
+    const item = { id: uid(), ...EXPENSE_DEFAULTS, ...data, createdAt: now(), updatedAt: now() };
+    item.amount = Math.round(Number(item.amount) || 0);
+    state.expenses.push(item);
+    if (item.importKey) keys.add(item.importKey);
+    made.push(item);
+  }
+  if (made.length) { persist(); emit('expenses'); }
+  return made;
+}
+export const addExpense = (data) => addExpenses([data])[0];
+
+export function updateExpense(id, patch) {
+  const item = getExpense(id);
+  if (!item) return null;
+  Object.assign(item, patch, { updatedAt: now() });
+  item.amount = Math.round(Number(item.amount) || 0);
+  persist(); emit('expenses');
+  return item;
+}
+
+export function deleteExpense(id) {
+  const i = state.expenses.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  state.expenses.splice(i, 1);
+  state.deleted[id] = now();
+  persist(); emit('expenses');
+}
+
+export function addSubscription(data) {
+  const item = {
+    id: uid(), name: '', amount: 0, cycle: 'monthly', billingDay: 1, billingMonth: 1, category: 'subs',
+    method: '', startDate: '', active: true, review: false, memo: '', keyword: '',
+    ...data, createdAt: now(), updatedAt: now(),
+  };
+  item.amount = Math.round(Number(item.amount) || 0);
+  state.subscriptions.push(item);
+  persist(); emit('subscriptions');
+  return item;
+}
+
+export function updateSubscription(id, patch) {
+  const item = getSubscription(id);
+  if (!item) return null;
+  Object.assign(item, patch, { updatedAt: now() });
+  item.amount = Math.round(Number(item.amount) || 0);
+  persist(); emit('subscriptions');
+  return item;
+}
+
+export function deleteSubscription(id) {
+  const i = state.subscriptions.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  state.subscriptions.splice(i, 1);
+  state.deleted[id] = now();
+  // 연결된 지출은 일반 지출로 풀어 준다
+  state.expenses.forEach((x) => { if (x.subscriptionId === id) { x.subscriptionId = ''; x.updatedAt = now(); } });
+  persist(); emit('subscriptions');
+}
+
+/* ------------------------------------------------------------------ */
 /* 내보내기 / 가져오기 / 병합                                            */
 /* ------------------------------------------------------------------ */
 export function serialize() {
@@ -436,6 +518,8 @@ export function serialize() {
     events: state.events,
     studies: state.studies,
     sessions: state.sessions,
+    expenses: state.expenses,
+    subscriptions: state.subscriptions,
     deleted: state.deleted,
     meta: state.meta,
   };
@@ -471,6 +555,8 @@ export function mergeSnapshot(remote) {
   state.events = mergeList(state.events, remote.events);
   state.studies = mergeList(state.studies, remote.studies);
   state.sessions = mergeList(state.sessions, remote.sessions);
+  state.expenses = mergeList(state.expenses, remote.expenses);
+  state.subscriptions = mergeList(state.subscriptions, remote.subscriptions);
   persist(); emit('all');
 }
 
@@ -482,6 +568,8 @@ export function replaceAll(snapshot) {
   state.events = Array.isArray(snapshot.events) ? snapshot.events : [];
   state.studies = Array.isArray(snapshot.studies) ? snapshot.studies : [];
   state.sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+  state.expenses = Array.isArray(snapshot.expenses) ? snapshot.expenses : [];
+  state.subscriptions = Array.isArray(snapshot.subscriptions) ? snapshot.subscriptions : [];
   state.deleted = snapshot.deleted && typeof snapshot.deleted === 'object' ? snapshot.deleted : {};
   state.jobs.forEach(normalizeJob);
   persist(); emit('all');

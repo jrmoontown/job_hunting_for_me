@@ -5,7 +5,6 @@ import { load, subscribe, getSettings, persistSettings, getJobs, getTodos, ddayO
 import { isOpenStatus } from './seed.js';
 import { icons } from './ui.js';
 import { syncNow, onSyncState, isConfigured, getSyncState } from './sync.js';
-import { renderCalendar } from './views/calendar.js';
 import { renderHome } from './views/home.js';
 import { renderJobhunt, JOBHUNT_SUBS, lastJobhuntSub } from './views/jobhunt.js';
 import { renderStudy, studyStats } from './views/study.js';
@@ -17,22 +16,24 @@ import { openTodoForm } from './views/todos.js';
 import { openAddChooser } from './views/events.js';
 import { openSessionForm } from './views/study.js';
 import { getPlan } from './plan.js';
+import { renderMoney, openExpenseForm } from './views/money.js';
+import { monthSummary, won, monthLabel, thisMonth } from './money.js';
 
 /**
  * 화면 구성 — 홈 · 취준(공고/전형/현황) · 공부 · 투두 · 캘린더, 설정은 상단 톱니.
  * 예전 주소(#/jobs, #/pipeline, #/dashboard)는 취준 탭의 하위 화면으로 그대로 열린다.
  */
 const ROUTES = {
-  home: { title: '홈', icon: 'home', render: (el2) => renderHome(el2, { goTo }), caption: () => homeCaption() },
+  home: { title: '홈', icon: 'calendar', render: (el2) => renderHome(el2, { goTo }), caption: () => homeCaption() },
   jobhunt: { title: '취준', icon: 'briefcase', render: (el2) => renderJobhunt(el2, { sub, goTo }), caption: () => jobhuntCaption() },
   study: { title: '공부', icon: 'book', render: renderStudy, caption: () => studyCaption() },
   todos: { title: '투두', icon: 'check', render: renderTodos, caption: () => todosCaption() },
-  calendar: { title: '캘린더', icon: 'calendar', render: renderCalendar, caption: () => monthCaption() },
+  money: { title: '가계부', icon: 'wallet', render: renderMoney, caption: () => moneyCaption() },
   settings: { title: '설정', icon: 'gear', render: (el2) => renderSettings(el2, { applyTheme }), caption: () => '' },
 };
-/** 모바일 하단 탭 — 세 영역(취준·공부·투두)이 같은 비중, 양옆에 홈과 캘린더 */
-const TAB_ORDER = ['home', 'jobhunt', 'study', 'todos', 'calendar'];
-const SIDE_ORDER = ['home', 'jobhunt', 'study', 'todos', 'calendar', 'settings'];
+/** 모바일 하단 탭 — 홈(캘린더) · 취준 · 공부 · 투두 · 가계부 */
+const TAB_ORDER = ['home', 'jobhunt', 'study', 'todos', 'money'];
+const SIDE_ORDER = ['home', 'jobhunt', 'study', 'todos', 'money', 'settings'];
 
 const view = document.getElementById('view');
 let current = '';
@@ -50,6 +51,10 @@ function monthCaption() {
   const conflicts = getPlan().plans.size;
   const head = week.length ? `이번 주 마감 ${week.length}건` : `지원 예정 ${open.length}건`;
   return conflicts ? `${head} · 조정 필요 ${conflicts}건` : head;
+}
+function moneyCaption() {
+  const s = monthSummary(thisMonth());
+  return s.total ? `${monthLabel(thisMonth()).slice(6)} ${won(s.total)} · 정기결제 ${won(s.subsTotal)}` : '지출과 정기결제를 한눈에';
 }
 function homeCaption() {
   const open = getJobs().filter((j) => isOpenStatus(j.status)).length;
@@ -110,7 +115,7 @@ function goTo(key) { location.hash = `#/${key}`; }
 
 function route() {
   const raw = (location.hash.replace(/^#\/?/, '') || 'home').split('?')[0];
-  let key = raw;
+  let key = raw === 'calendar' ? 'home' : raw;
   if (JOBHUNT_SUBS.includes(raw)) { key = 'jobhunt'; sub = raw; }
   else if (raw === 'jobhunt') { sub = lastJobhuntSub(); }
   current = ROUTES[key] ? key : 'home';
@@ -176,6 +181,7 @@ document.getElementById('fab').addEventListener('click', () => {
   if (current === 'todos') openTodoForm();
   else if (current === 'jobhunt' && sub === 'jobs') openJobForm();
   else if (current === 'study') openSessionForm();
+  else if (current === 'money') openExpenseForm();
   else openAddChooser();
 });
 

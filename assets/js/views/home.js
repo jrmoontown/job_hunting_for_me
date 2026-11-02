@@ -1,6 +1,5 @@
 /**
- * 홈 — 취준 · 공부 · 투두 세 영역을 같은 비중으로 보여주는 첫 화면.
- * "오늘 뭘 해야 하나"에 답하는 데 집중한다.
+ * 홈 — 캘린더가 메인, 그 아래 취준 · 공부 · 투두 세 영역을 같은 비중으로.
  */
 import { getJobs, getTodos, addTodo, todayStr, ddayOf, fmtDate } from '../store.js';
 import { isOpenStatus } from '../seed.js';
@@ -10,7 +9,8 @@ import { jobCardHTML, bindJobCards } from './jobShared.js';
 import { todoItemHTML, bindTodoList } from './todos.js';
 import { pipelineStats, resultOverdue } from './pipeline.js';
 import { studyStats, sessionItemHTML, bindSessionList, studyCardHTML, bindStudyCards, sessionLabel } from './study.js';
-import { getPlan, planFor, fmtShort, weeklyLoad } from '../plan.js';
+import { getPlan, planFor, fmtShort } from '../plan.js';
+import { renderCalendar } from './calendar.js';
 
 export function renderHome(root, { goTo }) {
   const today = todayStr();
@@ -44,43 +44,8 @@ export function renderHome(root, { goTo }) {
   const todoFree = openTodos.filter((t) => !t.dueDate);
   const todoList = [...todoDue, ...todoSoon, ...todoFree].slice(0, 4);
 
-  /* ---- 헤드라인 ---- */
-  const parts = [];
-  if (soon.length) parts.push(`마감 ${soon.length}건`);
-  if (st.todays.length) parts.push(`공부 ${st.todays.length}건`);
-  if (todoDue.length) parts.push(`할 일 ${todoDue.length}건`);
-  const headline = parts.length
-    ? `오늘은 <em>${parts.join(' · ')}</em>`
-    : open.length || openTodos.length ? '오늘 당장 급한 건 없어요. <em>미리 당겨 쓰기</em> 좋은 날' : '모두 처리했어요 🎉';
-
-  /* ---- 이번 주 띠 ---- */
-  const week = weeklyLoad(1)[0];
-  const sessByDate = new Map();
-  st.week.forEach((s) => sessByDate.set(s.date, (sessByDate.get(s.date) || 0) + 1));
-  const todoByDate = new Map();
-  openTodos.forEach((t) => { if (t.dueDate) todoByDate.set(t.dueDate, (todoByDate.get(t.dueDate) || 0) + 1); });
-
   root.innerHTML = `
-    <div class="hero hero--home">
-      <p class="hero__eyebrow">${fmtDate(today, { withYear: true })}</p>
-      <h2 class="hero__headline">${headline}</h2>
-      <div class="week-strip" aria-label="이번 주">
-        ${week.days.map((d) => {
-          const dow = new Date(d.date + 'T00:00').getDay();
-          const isT = d.date === today;
-          return `
-          <button class="week-strip__day ${isT ? 'is-today' : ''} ${d.past ? 'is-past' : ''} ${d.avail === 'none' ? 'is-block' : ''}" data-go-date="${d.date}" aria-label="${fmtDate(d.date)}">
-            <span class="week-strip__dow ${dow === 0 ? 'is-sun' : dow === 6 ? 'is-sat' : ''}">${['일', '월', '화', '수', '목', '금', '토'][dow]}</span>
-            <span class="week-strip__num">${Number(d.date.slice(-2))}</span>
-            <span class="week-strip__dots">
-              ${d.count ? `<i style="background:var(--primary)" title="마감 ${d.count}"></i>` : ''}
-              ${sessByDate.get(d.date) ? '<i style="background:var(--success)" title="공부"></i>' : ''}
-              ${todoByDate.get(d.date) ? '<i style="background:var(--violet-500)" title="할 일"></i>' : ''}
-            </span>
-          </button>`;
-        }).join('')}
-      </div>
-    </div>
+    <div id="homeCal"></div>
 
     <div class="home-grid">
       <!-- ───── 취준 ───── -->
@@ -149,11 +114,6 @@ export function renderHome(root, { goTo }) {
   `;
 
   root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => goTo(b.dataset.go)));
-  root.querySelectorAll('[data-go-date]').forEach((b) => b.addEventListener('click', async () => {
-    const m = await import('./calendar.js');
-    m.focusDate(b.dataset.goDate);
-    goTo('calendar');
-  }));
   root.querySelectorAll('[data-add-study]').forEach((b) => b.addEventListener('click', async () => {
     const m = await import('./study.js');
     m.openStudyForm();
@@ -166,8 +126,10 @@ export function renderHome(root, { goTo }) {
     addTodo({ text });
     scheduleSync();
   });
-  const jl = root.querySelector('[data-job-list]'); if (jl) bindJobCards(jl);
-  const sl = root.querySelector('[data-session-list]'); if (sl) bindSessionList(sl);
-  const stl = root.querySelector('[data-study-list]'); if (stl) bindStudyCards(stl);
-  const tl = root.querySelector('[data-todo-list]'); if (tl) bindTodoList(tl);
+  renderCalendar(root.querySelector('#homeCal'));
+  const grid = root.querySelector('.home-grid');
+  const jl = grid.querySelector('[data-job-list]'); if (jl) bindJobCards(jl);
+  const sl = grid.querySelector('[data-session-list]'); if (sl) bindSessionList(sl);
+  const stl = grid.querySelector('[data-study-list]'); if (stl) bindStudyCards(stl);
+  const tl = grid.querySelector('[data-todo-list]'); if (tl) bindTodoList(tl);
 }
